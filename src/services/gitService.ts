@@ -12,8 +12,8 @@ import {
   StashEntry
 } from '../types';
 
-const FIELD_SEPARATOR = '\u001f';
-const RECORD_SEPARATOR = '\u001e';
+const FIELD_SEPARATOR = '|~|';
+const RECORD_SEPARATOR = '|#|';
 
 export class GitService {
   constructor(
@@ -52,8 +52,7 @@ export class GitService {
 
     const result = await this.runGit([
       'for-each-ref',
-      '--format',
-      `${format}${RECORD_SEPARATOR}`,
+      `--format=${format}${RECORD_SEPARATOR}`,
       'refs/heads',
       'refs/remotes'
     ]);
@@ -172,8 +171,7 @@ export class GitService {
         'show',
         'refs/stash',
         '--date=iso-strict',
-        '--format',
-        `%gd${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%gs${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${RECORD_SEPARATOR}`
+        `--format=%gd${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%gs${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${RECORD_SEPARATOR}`
       ]);
     } catch {
       return [];
@@ -253,7 +251,7 @@ export class GitService {
       '%s'
     ].join(FIELD_SEPARATOR);
 
-    const args = ['log', '--date=iso-strict', '--decorate=full', `--max-count=${maxCount}`, '--format', `${format}${RECORD_SEPARATOR}`];
+    const args = ['log', '--date=iso-strict', '--decorate=full', `--max-count=${maxCount}`, `--format=${format}${RECORD_SEPARATOR}`];
 
     if (filters?.branch) {
       args.push(filters.branch);
@@ -344,15 +342,13 @@ export class GitService {
     const leftOnly = await this.runGit([
       'log',
       '--date=iso-strict',
-      '--format',
-      `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`,
+      `--format=%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`,
       `${rightRef}..${leftRef}`
     ]);
     const rightOnly = await this.runGit([
       'log',
       '--date=iso-strict',
-      '--format',
-      `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`,
+      `--format=%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`,
       `${leftRef}..${rightRef}`
     ]);
 
@@ -506,7 +502,7 @@ export class GitService {
 
   async fileHistory(path: string): Promise<GraphCommit[]> {
     const format = `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`;
-    const result = await this.runGit(['log', '--date=iso-strict', '--follow', '--format', format, '--', path]);
+    const result = await this.runGit(['log', '--date=iso-strict', '--follow', `--format=${format}`, '--', path]);
     return parseGraphRows(result.stdout);
   }
 
