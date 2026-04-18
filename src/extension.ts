@@ -16,6 +16,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const logger = new Logger();
   context.subscriptions.push({ dispose: () => logger.dispose() });
   await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewVisible', false);
+  await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanRevertSelected', false);
+  await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewCanCherryPickSelected', false);
 
   const configuration = vscode.workspace.getConfiguration('intelliGit');
 
@@ -61,13 +63,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   });
   const graphView = vscode.window.createTreeView('intelliGit.graph', {
     treeDataProvider: graphProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
   const commitFilesProvider = new CommitFilesTreeProvider(gitService);
   const commitDecorationProvider = new CommitFileDecorationProvider(commitFilesProvider);
   const commitView = vscode.window.createTreeView('intelliGit.commitView', {
     treeDataProvider: commitFilesProvider,
-    showCollapseAll: true
+    showCollapseAll: true,
+    canSelectMany: true
   });
 
   context.subscriptions.push(
@@ -83,7 +87,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
-  const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider);
+  const commandController = new CommandController(gitService, stateStore, editor, logger, commitFilesProvider, branchProvider);
   commandController.register(context);
   stateStore.attachAutoRefresh(context);
 

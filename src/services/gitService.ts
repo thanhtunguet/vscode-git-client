@@ -162,6 +162,18 @@ export class GitService {
     await this.runGit(['cherry-pick', ref]);
   }
 
+  async cherryPickCommitFiles(ref: string, filePaths: string[], subject?: string): Promise<void> {
+    await this.applyCommitFilesPatch(ref, filePaths, false);
+    const staged = await this.getStagedFiles();
+    if (staged.length === 0) {
+      return;
+    }
+
+    const title = subject?.trim() || ref.slice(0, 8);
+    const message = `Cherry-pick selected changes from ${ref.slice(0, 8)} ${title}`.trim();
+    await this.runGit(['commit', '-m', message]);
+  }
+
   async cherryPickRange(fromExclusive: string, toInclusive: string): Promise<void> {
     await this.runGit(['cherry-pick', `${fromExclusive}..${toInclusive}`]);
   }
@@ -170,8 +182,29 @@ export class GitService {
     await this.runGit(['revert', ref]);
   }
 
+  async revertCommitFiles(ref: string, filePaths: string[], subject?: string): Promise<void> {
+    await this.applyCommitFilesPatch(ref, filePaths, true);
+    const staged = await this.getStagedFiles();
+    if (staged.length === 0) {
+      return;
+    }
+
+    const title = subject?.trim() || ref.slice(0, 8);
+    const message = `Revert selected changes from ${ref.slice(0, 8)} ${title}`.trim();
+    await this.runGit(['commit', '-m', message]);
+  }
+
   async resetCurrent(ref: string, mode: 'soft' | 'mixed' | 'hard'): Promise<void> {
     await this.runGit(['reset', `--${mode}`, ref]);
+  }
+
+  async isCommitInCurrentBranch(sha: string): Promise<boolean> {
+    try {
+      await this.runGit(['merge-base', '--is-ancestor', sha, 'HEAD']);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async getRevision(ref: string): Promise<string> {
@@ -366,6 +399,15 @@ export class GitService {
     return result.stdout;
   }
 
+  async getPatchForCommitFiles(sha: string, filePaths: string[]): Promise<string> {
+    if (filePaths.length === 0) {
+      return '';
+    }
+
+    const result = await this.runGit(['show', '--binary', '--format=', sha, '--', ...filePaths]);
+    return result.stdout;
+  }
+
   async getRevisionForFile(filePath: string, refSpec: string): Promise<string | undefined> {
     const result = await this.runGit(['ls-tree', '-r', refSpec, '--', filePath]);
     const row = result.stdout
@@ -426,6 +468,14 @@ export class GitService {
         status: line.slice(0, 2),
         path: line.slice(3)
       }));
+  }
+
+  async getStagedFiles(): Promise<string[]> {
+    const result = await this.runGit(['diff', '--cached', '--name-only']);
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
   }
 
   async getMergeConflicts(): Promise<MergeConflictFile[]> {
@@ -632,6 +682,71 @@ export class GitService {
         const error = new Error(stderr || `Git command failed with exit code ${code}: ${command}`);
         reject(error);
       });
+    });
+  }
+
+  private async applyCommitFilesPatch(ref: string, filePaths: string[], reverse: boolean): Promise<void> {
+    if (filePaths.length === 0) {
+      return;
+    }
+
+    const patch = await this.getPatchForCommitFiles(ref, filePaths);
+    if (!patch.trim()) {
+      return;
+    }
+
+    const args = ['apply', '--index', '--3way', '--whitespace=nowarn'];
+    if (reverse) {
+      args.push('-R');
+    }
+    await this.runGitWithStdin(args, patch);
+  }
+
+  private async runGitWithStdin(args: string[], stdin: string): Promise<GitCommandResult> {
+    const gitPath = this.config.get<string>('gitPath', 'git');
+    const timeoutMs = this.config.get<number>('commandTimeoutMs', 15000);
+    const command = `${gitPath} ${args.join(' ')}`;
+    this.logger.info(`git ${args.join(' ')}`);
+
+    return new Promise<GitCommandResult>((resolve, reject) => {
+      const child = cp.spawn(gitPath, args, {
+        cwd: this.context.rootPath,
+        windowsHide: true
+      });
+
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error(`Git command timed out after ${timeoutMs}ms: ${command}`));
+      }, timeoutMs);
+
+      let stdout = '';
+      let stderr = '';
+
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk.toString();
+      });
+
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk.toString();
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        if (code === 0) {
+          resolve({ stdout, stderr });
+          return;
+        }
+
+        const error = new Error(stderr || `Git command failed with exit code ${code}: ${command}`);
+        reject(error);
+      });
+
+      child.stdin.end(stdin);
     });
   }
 }

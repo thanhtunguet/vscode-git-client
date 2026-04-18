@@ -270,6 +270,14 @@
       {
         "command": "intelliGit.fileBlame.open",
         "title": "Open File Blame"
+      },
+      {
+        "command": "intelliGit.commit.revertSelectedChanges",
+        "title": "Revert Selected Changes"
+      },
+      {
+        "command": "intelliGit.commit.cherryPickSelectedChanges",
+        "title": "Cherry-pick Selected Changes"
       }
     ],
     "keybindings": [
@@ -399,9 +407,29 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.commit.revertSelectedChanges",
+          "when": "view == intelliGit.commitView && viewItem == commitViewFile && intelliGit.commitViewCanRevertSelected",
+          "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.commit.cherryPickSelectedChanges",
+          "when": "view == intelliGit.commitView && viewItem == commitViewFile && intelliGit.commitViewCanCherryPickSelected",
+          "group": "navigation@2"
+        },
+        {
           "command": "intelliGit.graph.openRepositoryFileAtRevision",
           "when": "view == intelliGit.commitView && viewItem == revisionViewFile",
           "group": "inline"
+        },
+        {
+          "command": "intelliGit.commit.revertSelectedChanges",
+          "when": "view == intelliGit.graph && viewItem == graphCommitFile",
+          "group": "navigation@5"
+        },
+        {
+          "command": "intelliGit.commit.cherryPickSelectedChanges",
+          "when": "view == intelliGit.graph && viewItem == graphCommitFile",
+          "group": "navigation@6"
         }
       ]
     },

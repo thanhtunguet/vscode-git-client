@@ -4,7 +4,7 @@ import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
-import { CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
+import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
@@ -22,6 +22,9 @@ export class CommandController {
     private readonly state: StateStore,
     private readonly editor: EditorOrchestrator,
     private readonly logger: Logger,
+    private readonly commitFilesView: {
+      getCommitActionContext(selectedItems: readonly CommitFileTreeItem[]): CommitActionContext | undefined;
+    },
     private readonly branchProvider: {
       setFilter(value: string): void;
       refresh(): void;
@@ -510,6 +513,58 @@ export class CommandController {
 
       await this.git.revertCommit(sha);
       await this.state.refreshAll();
+    });
+
+    register('intelliGit.commit.revertSelectedChanges', async (arg?: unknown, selected?: unknown) => {
+      const target = await this.resolveSelectedCommitFiles(arg, selected);
+      if (!target) {
+        void vscode.window.showInformationMessage('Select one or more files from a commit first.');
+        return;
+      }
+
+      if (!target.canRevert) {
+        void vscode.window.showWarningMessage('Selected files belong to a commit that is not in the current branch.');
+        return;
+      }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Revert selected changes',
+        detail: `Commit: ${target.sha}\nFiles: ${target.filePaths.length}\n${target.filePaths.map((path) => `- ${path}`).join('\n')}`,
+        acceptLabel: 'Revert'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await this.git.revertCommitFiles(target.sha, target.filePaths, target.subject);
+      await this.state.refreshAll();
+      void vscode.window.showInformationMessage(`Reverted selected changes from ${target.sha.slice(0, 8)}.`);
+    });
+
+    register('intelliGit.commit.cherryPickSelectedChanges', async (arg?: unknown, selected?: unknown) => {
+      const target = await this.resolveSelectedCommitFiles(arg, selected);
+      if (!target) {
+        void vscode.window.showInformationMessage('Select one or more files from a commit first.');
+        return;
+      }
+
+      if (!target.canCherryPick) {
+        void vscode.window.showWarningMessage('Selected files belong to a commit that is already in the current branch.');
+        return;
+      }
+
+      const confirmed = await confirmDangerousAction({
+        title: 'Cherry-pick selected changes',
+        detail: `Commit: ${target.sha}\nFiles: ${target.filePaths.length}\n${target.filePaths.map((path) => `- ${path}`).join('\n')}`,
+        acceptLabel: 'Cherry-pick'
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await this.git.cherryPickCommitFiles(target.sha, target.filePaths, target.subject);
+      await this.state.refreshAll();
+      void vscode.window.showInformationMessage(`Cherry-picked selected changes from ${target.sha.slice(0, 8)}.`);
     });
 
     register('intelliGit.graph.compareWithCurrent', async (arg?: unknown) => {
@@ -1068,5 +1123,77 @@ export class CommandController {
     }
 
     return this.toRelativePath(uri.fsPath);
+  }
+
+  private async resolveSelectedCommitFiles(
+    arg: unknown,
+    selectedArg: unknown
+  ): Promise<{ sha: string; subject: string; filePaths: string[]; canRevert: boolean; canCherryPick: boolean } | undefined> {
+    const selectedItems = this.toSelectedItems(arg, selectedArg);
+    if (selectedItems.length > 0 && selectedItems[0] instanceof CommitFileTreeItem) {
+      const context = this.commitFilesView.getCommitActionContext(selectedItems as CommitFileTreeItem[]);
+      if (!context || context.filePaths.length === 0) {
+        return undefined;
+      }
+      return {
+        sha: context.sha,
+        subject: context.subject,
+        filePaths: context.filePaths,
+        canRevert: context.canRevertSelected,
+        canCherryPick: context.canCherryPickSelected
+      };
+    }
+
+    const graphItems = selectedItems.filter((item): item is GraphCommitFileTreeItem => item instanceof GraphCommitFileTreeItem);
+    if (graphItems.length === 0) {
+      return undefined;
+    }
+
+    const commitShas = [...new Set(graphItems.map((item) => item.commit.sha))];
+    if (commitShas.length !== 1) {
+      void vscode.window.showWarningMessage('Select files from a single commit only.');
+      return undefined;
+    }
+
+    const sha = commitShas[0];
+    const commit = graphItems[0].commit;
+    const filePaths = [...new Set(graphItems.map((item) => item.filePath))].sort((a, b) => a.localeCompare(b));
+    if (filePaths.length === 0) {
+      return undefined;
+    }
+
+    const canRevert = await this.git.isCommitInCurrentBranch(sha);
+    return {
+      sha,
+      subject: commit.subject,
+      filePaths,
+      canRevert,
+      canCherryPick: !canRevert
+    };
+  }
+
+  private toSelectedItems(arg: unknown, selectedArg: unknown): Array<GraphCommitFileTreeItem | CommitFileTreeItem> {
+    const selectedList = Array.isArray(selectedArg) ? selectedArg : [];
+    const first = this.extractSelectableItem(arg);
+    const fromSelected = selectedList
+      .map((item) => this.extractSelectableItem(item))
+      .filter((item): item is GraphCommitFileTreeItem | CommitFileTreeItem => Boolean(item));
+
+    const all = [...fromSelected];
+    if (first) {
+      all.unshift(first);
+    }
+
+    return [...new Set(all)];
+  }
+
+  private extractSelectableItem(value: unknown): GraphCommitFileTreeItem | CommitFileTreeItem | undefined {
+    if (value instanceof GraphCommitFileTreeItem) {
+      return value;
+    }
+    if (value instanceof CommitFileTreeItem) {
+      return value;
+    }
+    return undefined;
   }
 }
