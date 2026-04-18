@@ -21,6 +21,7 @@
     "onView:intelliGit.branches",
     "onView:intelliGit.stashes",
     "onView:intelliGit.graph",
+    "onView:intelliGit.commitView",
     "onCommand:intelliGit.quickActions"
   ],
   "scripts": {
@@ -59,7 +60,14 @@
           "visibility": "visible",
           "icon": "media/intelligit.svg"
         }
-        ]
+      ],
+      "panel": [
+        {
+          "id": "intelliGit.commitView",
+          "name": "Commit View",
+          "type": "webview"
+        }
+      ]
     },
     "commands": [
       {

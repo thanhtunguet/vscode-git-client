@@ -9,6 +9,7 @@ import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';
 import { getRepositoryContext } from './services/repositoryContext';
 import { StateStore } from './state/stateStore';
+import { CommitFilesViewProvider } from './views/commitFilesViewProvider';
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const logger = new Logger();
@@ -35,7 +36,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
-      vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider })
+      vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
+      vscode.window.registerWebviewViewProvider(CommitFilesViewProvider.viewId, {
+        resolveWebviewView: () => {
+          // no-op placeholder for empty workspace context
+        }
+      })
     );
     return;
   }
@@ -65,7 +71,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const virtualProvider = new VirtualGitContentProvider();
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
-  const editor = new EditorOrchestrator(gitService, stateStore, context.extensionUri, virtualProvider);
+  const commitFilesView = new CommitFilesViewProvider(gitService, async (sha, filePath) => {
+    const leftUri = vscode.Uri.parse(`intelligit:${encodeURIComponent(`${sha}^`)}/${filePath.replaceAll('\\', '/')}`);
+    const rightUri = vscode.Uri.parse(`intelligit:${encodeURIComponent(sha)}/${filePath.replaceAll('\\', '/')}`);
+    const leftContent = await gitService.getFileContentFromRef(`${sha}^`, filePath);
+    const rightContent = await gitService.getFileContentFromRef(sha, filePath);
+    virtualProvider.setContent(leftUri, leftContent);
+    virtualProvider.setContent(rightUri, rightContent);
+
+    await vscode.commands.executeCommand('vscode.setEditorLayout', {
+      orientation: 0,
+      groups: [{ size: 0.34 }, { size: 0.66 }]
+    });
+
+    await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`, {
+      preview: false,
+      preserveFocus: true,
+      viewColumn: vscode.ViewColumn.Two
+    });
+  });
+  context.subscriptions.push(commitFilesView);
+  context.subscriptions.push(vscode.window.registerWebviewViewProvider(CommitFilesViewProvider.viewId, commitFilesView));
+
+  const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesView);
   const commandController = new CommandController(gitService, stateStore, editor, logger, branchProvider);
   commandController.register(context);
 

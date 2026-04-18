@@ -4,6 +4,7 @@ import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
 import { CompareView } from '../views/compareView';
 import { CompareResult } from '../types';
+import { CommitFilesViewProvider } from '../views/commitFilesViewProvider';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
 
 export class EditorOrchestrator {
@@ -12,8 +13,8 @@ export class EditorOrchestrator {
   constructor(
     private readonly git: GitService,
     private readonly state: StateStore,
-    private readonly extensionUri: vscode.Uri,
-    private readonly contentProvider: VirtualGitContentProvider
+    private readonly contentProvider: VirtualGitContentProvider,
+    private readonly commitFilesView: CommitFilesViewProvider
   ) {}
 
   async openMergeConflict(filePath: string): Promise<void> {
@@ -45,6 +46,7 @@ export class EditorOrchestrator {
 
   async openBranchCompare(leftRef: string, rightRef: string): Promise<CompareResult> {
     const result = await this.state.compareBranches(leftRef, rightRef);
+    await this.commitFilesView.clear();
     this.ensureCompareView().render(result);
     this.ensureCompareView().reveal();
     return result;
@@ -121,10 +123,11 @@ export class EditorOrchestrator {
 
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
-      this.compareView = new CompareView(this.extensionUri, this.git, async (sha, filePath) => {
-        await this.openCommitFileDiffBeside(sha, filePath);
+      this.compareView = new CompareView(async (sha, subject) => {
+        await this.commitFilesView.showCommit(sha, subject);
       });
       this.compareView.onDispose(() => {
+        void this.commitFilesView.clear();
         this.compareView = undefined;
       });
     }
