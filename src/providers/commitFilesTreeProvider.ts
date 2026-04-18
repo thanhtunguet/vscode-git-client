@@ -16,6 +16,7 @@ export class CommitFileTreeItem extends vscode.TreeItem {
     this.contextValue = 'commitViewFile';
     this.resourceUri = vscode.Uri.file(path.join(workspaceRoot, filePath));
     this.description = statusBadge(status);
+    this.description = this.description.padStart(2, ' ');
     this.tooltip = `${filePath}\n${statusTitle(status)}`;
     this.command = {
       title: 'Open Commit File Diff',
@@ -79,6 +80,15 @@ export class CommitFilesTreeProvider implements vscode.TreeDataProvider<CommitVi
   async clear(): Promise<void> {
     this.activeCommit = undefined;
     this.emitter.fire();
+  }
+
+  getAllFileItems(): CommitFileTreeItem[] {
+    if (!this.activeCommit) {
+      return [];
+    }
+    return this.activeCommit.files
+      .map((file) => new CommitFileTreeItem(this.activeCommit!.sha, file.path, file.status, this.git.rootPath))
+      .sort((a, b) => a.filePath.localeCompare(b.filePath));
   }
 }
 

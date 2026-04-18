@@ -250,7 +250,7 @@ function renderCompareHtml(result: CompareResult): string {
     }
     th.col-author, th.col-date { z-index: 2; }
     .commit-row {
-      cursor: context-menu;
+      cursor: pointer;
     }
     .commit-row:hover {
       background: color-mix(in srgb, var(--accent), transparent 90%);

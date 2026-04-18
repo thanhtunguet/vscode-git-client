@@ -4,6 +4,7 @@ import { EditorOrchestrator } from './editor/editorOrchestrator';
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
+import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider, CommitFileTreeItem } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
@@ -62,12 +63,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     showCollapseAll: true
   });
   const commitFilesProvider = new CommitFilesTreeProvider(gitService);
+  const commitDecorationProvider = new CommitFileDecorationProvider(commitFilesProvider);
   const commitView = vscode.window.createTreeView('intelliGit.commitView', {
     treeDataProvider: commitFilesProvider,
     showCollapseAll: true
   });
 
-  context.subscriptions.push(branchView, stashView, graphView, commitView);
+  context.subscriptions.push(
+    branchView,
+    stashView,
+    graphView,
+    commitView,
+    commitDecorationProvider,
+    vscode.window.registerFileDecorationProvider(commitDecorationProvider)
+  );
 
   const virtualProvider = new VirtualGitContentProvider();
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
