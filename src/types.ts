@@ -4,12 +4,15 @@ export type BranchType = 'local' | 'remote';
 
 export interface BranchRef {
   readonly name: string;
+  readonly shortName: string;
   readonly fullName: string;
   readonly type: BranchType;
+  readonly remoteName?: string;
   readonly upstream?: string;
   readonly ahead: number;
   readonly behind: number;
   readonly current: boolean;
+  readonly lastCommitEpoch?: number;
 }
 
 export interface StashEntry {

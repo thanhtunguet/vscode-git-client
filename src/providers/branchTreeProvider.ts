@@ -2,22 +2,51 @@ import * as vscode from 'vscode';
 import { StateStore } from '../state/stateStore';
 import { BranchRef } from '../types';
 
-class BranchGroupNode extends vscode.TreeItem {
+class BranchSectionNode extends vscode.TreeItem {
   constructor(
+    public readonly kind: 'recent' | 'local' | 'remote',
+    public readonly branches: BranchRef[],
+    count: number
+  ) {
+    const label = kind === 'recent' ? 'Recent' : kind === 'local' ? 'Local' : 'Remote';
+    super(label, vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = 'branchSection';
+    this.id = `branchSection:${kind}`;
+    this.description = `${count}`;
+  }
+}
+
+class BranchRemoteNode extends vscode.TreeItem {
+  constructor(
+    public readonly remoteName: string,
+    public readonly branches: BranchRef[]
+  ) {
+    super(remoteName, vscode.TreeItemCollapsibleState.Collapsed);
+    this.contextValue = 'branchRemoteGroup';
+    this.id = `branchRemote:${remoteName}`;
+  }
+}
+
+class BranchPathNode extends vscode.TreeItem {
+  constructor(
+    public readonly idPrefix: string,
     public readonly segment: string,
     public readonly fullPath: string,
-    public readonly depth: number,
-    public readonly childrenBranches: BranchRef[]
+    public readonly branches: BranchRef[],
+    public readonly pathMode: 'name' | 'shortName'
   ) {
     super(segment, vscode.TreeItemCollapsibleState.Collapsed);
-    this.contextValue = 'branchGroup';
-    this.id = `branchGroup:${fullPath}`;
+    this.contextValue = 'branchPathGroup';
+    this.id = `branchPath:${idPrefix}:${fullPath}`;
   }
 }
 
 export class BranchTreeItem extends vscode.TreeItem {
-  constructor(public readonly branch: BranchRef) {
-    super(branch.name, vscode.TreeItemCollapsibleState.None);
+  constructor(
+    public readonly branch: BranchRef,
+    label: string
+  ) {
+    super(label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'branchRef';
     this.id = `branch:${branch.fullName}`;
     this.description = describeBranch(branch);
@@ -61,38 +90,88 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
       if (!this.filterText) {
         return true;
       }
-      return branch.name.toLowerCase().includes(this.filterText);
+      return branch.name.toLowerCase().includes(this.filterText) || branch.shortName.toLowerCase().includes(this.filterText);
     });
 
     if (!element) {
-      return this.buildTopLevelNodes(branches);
+      return this.buildTopLevelSections(branches);
     }
 
-    if (element instanceof BranchGroupNode) {
-      return this.buildGroupChildren(element.fullPath, branches, element.depth + 1);
+    if (element instanceof BranchSectionNode) {
+      if (element.kind === 'remote') {
+        return this.buildRemoteNodes(element.branches);
+      }
+      return this.buildPathNodes(
+        element.branches,
+        '',
+        element.kind === 'local' ? 'name' : 'shortName',
+        element.kind
+      );
+    }
+
+    if (element instanceof BranchRemoteNode) {
+      return this.buildPathNodes(element.branches, '', 'shortName', `remote:${element.remoteName}`);
+    }
+
+    if (element instanceof BranchPathNode) {
+      return this.buildPathNodes(element.branches, element.fullPath, element.pathMode, element.idPrefix);
     }
 
     return [];
   }
 
-  private buildTopLevelNodes(branches: BranchRef[]): vscode.TreeItem[] {
-    return this.buildGroupChildren('', branches, 0);
+  private buildTopLevelSections(branches: BranchRef[]): vscode.TreeItem[] {
+    const localBranches = branches.filter((branch) => branch.type === 'local');
+    const remoteBranches = branches.filter((branch) => branch.type === 'remote');
+    const recentBranches = this.getRecentBranches(branches);
+
+    const sections: vscode.TreeItem[] = [];
+    if (recentBranches.length > 0) {
+      sections.push(new BranchSectionNode('recent', recentBranches, recentBranches.length));
+    }
+    if (localBranches.length > 0) {
+      sections.push(new BranchSectionNode('local', localBranches, localBranches.length));
+    }
+    if (remoteBranches.length > 0) {
+      sections.push(new BranchSectionNode('remote', remoteBranches, remoteBranches.length));
+    }
+    return sections;
   }
 
-  private buildGroupChildren(basePath: string, branches: BranchRef[], depth: number): vscode.TreeItem[] {
+  private buildRemoteNodes(branches: BranchRef[]): vscode.TreeItem[] {
+    const byRemote = new Map<string, BranchRef[]>();
+    for (const branch of branches) {
+      const remote = branch.remoteName ?? 'unknown';
+      const list = byRemote.get(remote) ?? [];
+      list.push(branch);
+      byRemote.set(remote, list);
+    }
+
+    return Array.from(byRemote.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([remoteName, remoteBranches]) => new BranchRemoteNode(remoteName, remoteBranches));
+  }
+
+  private buildPathNodes(
+    branches: BranchRef[],
+    basePath: string,
+    pathMode: 'name' | 'shortName',
+    idPrefix: string
+  ): vscode.TreeItem[] {
     const groups = new Map<string, BranchRef[]>();
     const leaves: BranchTreeItem[] = [];
 
     for (const branch of branches) {
-      const relativeName = basePath ? branch.name.slice(basePath.length + 1) : branch.name;
+      const branchPath = pathMode === 'name' ? branch.name : branch.shortName;
+      const relativeName = basePath ? branchPath.slice(basePath.length + 1) : branchPath;
       if (!relativeName) {
-        leaves.push(new BranchTreeItem(branch));
+        leaves.push(new BranchTreeItem(branch, branchPath.split('/').at(-1) ?? branchPath));
         continue;
       }
 
       const parts = relativeName.split('/');
       if (parts.length === 1) {
-        leaves.push(new BranchTreeItem(branch));
+        leaves.push(new BranchTreeItem(branch, relativeName));
         continue;
       }
 
@@ -105,10 +184,7 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
 
     const groupItems = Array.from(groups.entries())
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([path, branchSet]) => {
-        const segment = path.split('/').at(-1) ?? path;
-        return new BranchGroupNode(segment, path, depth, branchSet);
-      });
+      .map(([fullPath, branchSet]) => new BranchPathNode(idPrefix, fullPath.split('/').at(-1) ?? fullPath, fullPath, branchSet, pathMode));
 
     leaves.sort((a, b) => {
       if (a.branch.current) {
@@ -117,10 +193,32 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
       if (b.branch.current) {
         return 1;
       }
-      return a.branch.name.localeCompare(b.branch.name);
+      const leftPath = pathMode === 'name' ? a.branch.name : a.branch.shortName;
+      const rightPath = pathMode === 'name' ? b.branch.name : b.branch.shortName;
+      return leftPath.localeCompare(rightPath);
     });
 
     return [...groupItems, ...leaves];
+  }
+
+  private getRecentBranches(branches: BranchRef[]): BranchRef[] {
+    const maxRecent = Math.min(10, Math.max(1, vscode.workspace.getConfiguration('intelliGit').get<number>('recentBranchesCount', 3)));
+    return [...branches]
+      .sort((a, b) => {
+        if (a.current) {
+          return -1;
+        }
+        if (b.current) {
+          return 1;
+        }
+        const left = a.lastCommitEpoch ?? 0;
+        const right = b.lastCommitEpoch ?? 0;
+        if (left !== right) {
+          return right - left;
+        }
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, maxRecent);
   }
 }
 

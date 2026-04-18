@@ -1012,12 +1012,13 @@ export class CommandController {
       branches.map((branch) => ({
         label: branch.name,
         description: branch.current ? 'current' : branch.type,
-        detail: `${branch.upstream ? `upstream ${branch.upstream}` : 'no upstream'} · ▲${branch.ahead} ▼${branch.behind}`
+        detail: `${branch.upstream ? `upstream ${branch.upstream}` : 'no upstream'} · ▲${branch.ahead} ▼${branch.behind}`,
+        value: branch.name
       })),
       { title }
     );
 
-    return picked?.label;
+    return picked?.value;
   }
 
   private async pickStashRef(title: string): Promise<string | undefined> {

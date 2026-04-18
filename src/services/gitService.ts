@@ -52,7 +52,8 @@ export class GitService {
       '%(refname)',
       '%(upstream:short)',
       '%(upstream:track)',
-      '%(HEAD)'
+      '%(HEAD)',
+      '%(committerdate:unix)'
     ].join(FIELD_SEPARATOR);
 
     const result = await this.runGit([
@@ -67,17 +68,23 @@ export class GitService {
       .map((line) => line.trim())
       .filter(Boolean)
       .map((line) => {
-        const [name, fullName, upstream, track, head] = line.split(FIELD_SEPARATOR);
+        const [name, fullName, upstream, track, head, commitEpochRaw] = line.split(FIELD_SEPARATOR);
         const { ahead, behind } = parseTrack(track || '');
         const type: 'local' | 'remote' = fullName.startsWith('refs/remotes/') ? 'remote' : 'local';
+        const shortName = type === 'remote' ? name.replace(/^[^/]+\//, '') : name;
+        const remoteName = type === 'remote' ? name.split('/')[0] : undefined;
+        const commitEpoch = Number.parseInt((commitEpochRaw ?? '').trim(), 10);
         return {
           name,
+          shortName,
           fullName,
           type,
+          remoteName,
           upstream: upstream || undefined,
           ahead,
           behind,
-          current: head === '*'
+          current: head === '*',
+          lastCommitEpoch: Number.isNaN(commitEpoch) ? undefined : commitEpoch
         };
       })
       .sort((a, b) => {
