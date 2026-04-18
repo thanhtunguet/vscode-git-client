@@ -2,7 +2,6 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
-import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { CompareView } from '../views/compareView';
 import { CompareResult } from '../types';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
@@ -14,8 +13,7 @@ export class EditorOrchestrator {
     private readonly git: GitService,
     private readonly state: StateStore,
     private readonly extensionUri: vscode.Uri,
-    private readonly contentProvider: VirtualGitContentProvider,
-    private readonly commitFilesProvider: CommitFilesTreeProvider
+    private readonly contentProvider: VirtualGitContentProvider
   ) {}
 
   async openMergeConflict(filePath: string): Promise<void> {
@@ -104,12 +102,30 @@ export class EditorOrchestrator {
     });
   }
 
+  private async openCommitFileDiffBeside(sha: string, filePath: string): Promise<void> {
+    const leftUri = await this.createVirtualUri(`${sha}^`, filePath);
+    const rightUri = await this.createVirtualUri(sha, filePath);
+    const title = `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`;
+
+    await vscode.commands.executeCommand('vscode.setEditorLayout', {
+      orientation: 0,
+      groups: [
+        { orientation: 1, groups: [{ size: 0.5 }, { size: 0.5 }], size: 0.55 },
+        { size: 0.45 }
+      ]
+    });
+
+    await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, title, {
+      preview: false,
+      preserveFocus: true,
+      viewColumn: vscode.ViewColumn.Three
+    });
+  }
+
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
-      this.compareView = new CompareView(this.extensionUri, async (sha, subject) => {
-        const files = await this.git.getFilesInCommit(sha);
-        this.commitFilesProvider.showCommit(sha, files, this.git.rootPath);
-        await vscode.commands.executeCommand('intelliGit.commitFiles.focus');
+      this.compareView = new CompareView(this.extensionUri, this.git, async (sha, filePath) => {
+        await this.openCommitFileDiffBeside(sha, filePath);
       });
     }
     return this.compareView;
