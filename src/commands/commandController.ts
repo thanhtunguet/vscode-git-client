@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
-import { GraphCommitTreeItem } from '../providers/graphTreeProvider';
+import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
@@ -32,6 +32,8 @@ export class CommandController {
     const asStashItem = (value: unknown): StashTreeItem | undefined => (value instanceof StashTreeItem ? value : undefined);
     const asGraphItem = (value: unknown): GraphCommitTreeItem | undefined =>
       value instanceof GraphCommitTreeItem ? value : undefined;
+    const asGraphFileItem = (value: unknown): GraphCommitFileTreeItem | undefined =>
+      value instanceof GraphCommitFileTreeItem ? value : undefined;
 
     const register = (command: string, callback: (...args: unknown[]) => Promise<void>): void => {
       context.subscriptions.push(
@@ -369,6 +371,15 @@ export class CommandController {
 
       const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
       await vscode.window.showTextDocument(doc, { preview: false });
+    });
+
+    register('intelliGit.graph.openFileDiff', async (arg?: unknown) => {
+      const item = asGraphFileItem(arg);
+      if (!item) {
+        return;
+      }
+
+      await this.editor.openCommitFileDiff(item.commit.sha, item.filePath);
     });
 
     register('intelliGit.graph.checkoutCommit', async (arg?: unknown) => {

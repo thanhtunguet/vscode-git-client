@@ -74,6 +74,15 @@ export class EditorOrchestrator {
     });
   }
 
+  async openCommitFileDiff(sha: string, filePath: string): Promise<void> {
+    await this.openDiffForFile({
+      path: filePath,
+      leftRef: `${sha}^`,
+      rightRef: sha,
+      title: `${sha.slice(0, 8)} parent ↔ commit · ${filePath}`
+    });
+  }
+
   async openBranchComparisonFileDiff(leftRef: string, rightRef: string): Promise<void> {
     const files = await this.git.getFilesChangedBetween(leftRef, rightRef);
     const choice = await vscode.window.showQuickPick(files, {

@@ -29,7 +29,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const branchProvider = new BranchTreeProvider(stateStore);
   const stashProvider = new StashTreeProvider(stateStore);
-  const graphProvider = new GraphTreeProvider(stateStore);
+  const graphProvider = new GraphTreeProvider(stateStore, gitService);
 
   const branchView = vscode.window.createTreeView('intelliGit.branches', {
     treeDataProvider: branchProvider,

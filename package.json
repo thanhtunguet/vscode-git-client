@@ -1,9 +1,10 @@
 {
-  "name": "intelligit",
+  "name": "vscode-git-client",
   "displayName": "IntelliGit Client",
   "description": "IntelliJ-like Git client for VS Code with branch tree, stashes, graph, merge/diff/compare workflows.",
   "version": "0.1.0",
-  "publisher": "local",
+  "publisher": "thanhtunguet",
+  "main": "./dist/extension.js",
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -16,13 +17,14 @@
     "url": "https://github.com/thanhtunguet/vscode-git-client"
   },
   "activationEvents": [
-    "onStartupFinished",
-    "onView:intelliGit.branches",
-    "onView:intelliGit.stashes",
-    "onView:intelliGit.graph",
-    "onCommand:intelliGit.quickActions"
+    "onStartupFinished"
   ],
-  "main": "./dist/extension.js",
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "lint": "eslint src --ext .ts",
+    "test": "npm run compile"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -37,15 +39,18 @@
       "intelliGit": [
         {
           "id": "intelliGit.branches",
-          "name": "Branches"
+          "name": "Branches",
+          "icon": "media/intelligit.svg"
         },
         {
           "id": "intelliGit.stashes",
-          "name": "Stashes"
+          "name": "Stashes",
+          "icon": "media/intelligit.svg"
         },
         {
           "id": "intelliGit.graph",
-          "name": "Git Graph"
+          "name": "Git Graph",
+          "icon": "media/intelligit.svg"
         }
       ]
     },
@@ -129,6 +134,10 @@
       {
         "command": "intelliGit.graph.openDetails",
         "title": "Open Commit Details"
+      },
+      {
+        "command": "intelliGit.graph.openFileDiff",
+        "title": "Open Commit File Diff"
       },
       {
         "command": "intelliGit.graph.checkoutCommit",
@@ -312,6 +321,11 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.graph.openFileDiff",
+          "when": "view == intelliGit.graph && viewItem == graphCommitFile",
+          "group": "inline"
+        },
+        {
           "command": "intelliGit.graph.checkoutCommit",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
           "group": "navigation"
@@ -360,12 +374,6 @@
         }
       }
     }
-  },
-  "scripts": {
-    "compile": "tsc -p .",
-    "watch": "tsc -watch -p .",
-    "lint": "eslint src --ext .ts",
-    "test": "npm run compile"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
