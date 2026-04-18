@@ -74,12 +74,14 @@ export class CommitFilesTreeProvider implements vscode.TreeDataProvider<CommitVi
     const files = await this.git.getFilesInCommitWithStatus(sha);
     this.activeCommit = { sha, subject, files };
     this.emitter.fire();
+    await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewVisible', true);
     await vscode.commands.executeCommand(`${CommitFilesTreeProviderViewId}.focus`);
   }
 
   async clear(): Promise<void> {
     this.activeCommit = undefined;
     this.emitter.fire();
+    await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewVisible', false);
   }
 
   getAllFileItems(): CommitFileTreeItem[] {

@@ -15,6 +15,7 @@ import { StateStore } from './state/stateStore';
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const logger = new Logger();
   context.subscriptions.push({ dispose: () => logger.dispose() });
+  await vscode.commands.executeCommand('setContext', 'intelliGit.commitViewVisible', false);
 
   const configuration = vscode.workspace.getConfiguration('intelliGit');
 

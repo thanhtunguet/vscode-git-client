@@ -64,7 +64,8 @@
       "panel": [
         {
           "id": "intelliGit.commitView",
-          "name": "Commit View"
+          "name": "Commit View",
+          "when": "intelliGit.commitViewVisible"
         }
       ]
     },
