@@ -1,6 +1,21 @@
 <svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <rect x="14" y="18" width="100" height="92" rx="16" fill="#1f6feb"/>
-  <path d="M40 42h48v12H40zM40 58h28v12H40zM40 74h48v12H40z" fill="#ffffff"/>
-  <circle cx="90" cy="64" r="18" fill="#f5a524"/>
-  <path d="M90 53v22M79 64h22" stroke="#0a0f14" stroke-width="6" stroke-linecap="round"/>
+  <rect width="128" height="128" rx="20" fill="#0d1117"/>
+
+  <!-- Main branch vertical line -->
+  <line x1="38" y1="16" x2="38" y2="112" stroke="#58a6ff" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Branch-off curve from main to feature -->
+  <path d="M38 46 C38 66, 90 58, 90 74" stroke="#f0883e" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+  <!-- Feature branch vertical line -->
+  <line x1="90" y1="74" x2="90" y2="112" stroke="#f0883e" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Main branch commits -->
+  <circle cx="38" cy="20" r="11" fill="#0d1117" stroke="#58a6ff" stroke-width="7"/>
+  <circle cx="38" cy="50" r="11" fill="#0d1117" stroke="#58a6ff" stroke-width="7"/>
+  <circle cx="38" cy="108" r="11" fill="#0d1117" stroke="#58a6ff" stroke-width="7"/>
+
+  <!-- Feature branch commits -->
+  <circle cx="90" cy="78" r="11" fill="#0d1117" stroke="#f0883e" stroke-width="7"/>
+  <circle cx="90" cy="108" r="11" fill="#0d1117" stroke="#f0883e" stroke-width="7"/>
 </svg>
