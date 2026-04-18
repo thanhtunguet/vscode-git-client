@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
-import { BranchRef, ComparePair, CompareResult, GraphCommit, StashEntry } from '../types';
+import { BranchRef, ComparePair, CompareResult, GraphCommit, StashEntry, WorkingTreeChange } from '../types';
 
 export class StateStore {
   private _branches: BranchRef[] = [];
   private _stashes: StashEntry[] = [];
+  private _changes: WorkingTreeChange[] = [];
   private _graph: GraphCommit[] = [];
   private _compareResult: CompareResult | undefined;
   private _recentComparePairs: ComparePair[] = [];
@@ -37,6 +38,10 @@ export class StateStore {
     return this._stashes;
   }
 
+  get changes(): WorkingTreeChange[] {
+    return this._changes;
+  }
+
   get graph(): GraphCommit[] {
     return this._graph;
   }
@@ -63,6 +68,7 @@ export class StateStore {
     if (!(await this.git.isRepo())) {
       this._branches = [];
       this._stashes = [];
+      this._changes = [];
       this._graph = [];
       this._compareResult = undefined;
       this.emitter.fire();
@@ -71,14 +77,16 @@ export class StateStore {
 
     const maxGraphCommits = this.configuration.get<number>('maxGraphCommits', 200);
 
-    const [branches, stashes, graph] = await Promise.all([
+    const [branches, stashes, changes, graph] = await Promise.all([
       this.git.getBranches(),
       this.git.getStashes(),
+      this.git.getChangedFiles(),
       this.git.getGraph(maxGraphCommits, this._graphFilters)
     ]);
 
     this._branches = branches;
     this._stashes = stashes;
+    this._changes = changes;
     this._graph = graph;
     this.emitter.fire();
   }
@@ -90,6 +98,11 @@ export class StateStore {
 
   async refreshStashes(): Promise<void> {
     this._stashes = await this.git.getStashes();
+    this.emitter.fire();
+  }
+
+  async refreshChanges(): Promise<void> {
+    this._changes = await this.git.getChangedFiles();
     this.emitter.fire();
   }
 

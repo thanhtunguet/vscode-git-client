@@ -95,3 +95,8 @@ export interface CommitFileChange {
   readonly status: string;
   readonly path: string;
 }
+
+export interface WorkingTreeChange {
+  readonly status: string;
+  readonly path: string;
+}

@@ -4,6 +4,7 @@ import { EditorOrchestrator } from './editor/editorOrchestrator';
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
+import { ChangeFileTreeItem, ChangesTreeProvider } from './providers/changesTreeProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider, CommitFileTreeItem } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
@@ -39,6 +40,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
     context.subscriptions.push(
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
+      vscode.window.createTreeView('intelliGit.changes', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.commitView', { treeDataProvider: emptyProvider })
@@ -50,6 +52,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const stateStore = new StateStore(gitService, logger, configuration, context.workspaceState);
 
   const branchProvider = new BranchTreeProvider(stateStore);
+  const changesProvider = new ChangesTreeProvider(stateStore, gitService.rootPath);
   const stashProvider = new StashTreeProvider(stateStore);
   const graphProvider = new GraphTreeProvider(stateStore, gitService);
 
@@ -60,6 +63,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const stashView = vscode.window.createTreeView('intelliGit.stashes', {
     treeDataProvider: stashProvider,
     showCollapseAll: true
+  });
+  const changesView = vscode.window.createTreeView('intelliGit.changes', {
+    treeDataProvider: changesProvider,
+    showCollapseAll: true,
+    canSelectMany: true
   });
   const graphView = vscode.window.createTreeView('intelliGit.graph', {
     treeDataProvider: graphProvider,
@@ -76,6 +84,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   context.subscriptions.push(
     branchView,
+    changesView,
     stashView,
     graphView,
     commitView,
@@ -87,7 +96,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
-  const commandController = new CommandController(gitService, stateStore, editor, logger, commitFilesProvider, branchProvider);
+  const commandController = new CommandController(
+    gitService,
+    stateStore,
+    editor,
+    logger,
+    commitFilesProvider,
+    {
+      getSelectedPaths(selectedItems: readonly ChangeFileTreeItem[]): string[] {
+        return changesProvider.getSelectedPaths(selectedItems);
+      }
+    },
+    branchProvider
+  );
   commandController.register(context);
   stateStore.attachAutoRefresh(context);
 

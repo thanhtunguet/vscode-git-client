@@ -20,6 +20,7 @@
   "activationEvents": [
     "onStartupFinished",
     "onView:intelliGit.branches",
+    "onView:intelliGit.changes",
     "onView:intelliGit.stashes",
     "onView:intelliGit.graph",
     "onView:intelliGit.commitView",
@@ -52,6 +53,12 @@
         {
           "id": "intelliGit.stashes",
           "name": "Stashes",
+          "visibility": "visible",
+          "icon": "media/intelligit.svg"
+        },
+        {
+          "id": "intelliGit.changes",
+          "name": "Changes",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
         },
@@ -272,6 +279,18 @@
         "title": "Open File Blame"
       },
       {
+        "command": "intelliGit.changes.openFileDiff",
+        "title": "Open Change Diff"
+      },
+      {
+        "command": "intelliGit.changes.stashSelected",
+        "title": "Stash Selected Changes"
+      },
+      {
+        "command": "intelliGit.stash.unshelve",
+        "title": "Unshelve Stash"
+      },
+      {
         "command": "intelliGit.commit.revertSelectedChanges",
         "title": "Revert Selected Changes"
       },
@@ -291,16 +310,26 @@
       "view/title": [
         {
           "command": "intelliGit.refresh",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation"
         },
         {
           "command": "intelliGit.quickActions",
-          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation@1"
         }
       ],
       "view/item/context": [
+        {
+          "command": "intelliGit.changes.openFileDiff",
+          "when": "view == intelliGit.changes && viewItem == changeFile",
+          "group": "inline"
+        },
+        {
+          "command": "intelliGit.changes.stashSelected",
+          "when": "view == intelliGit.changes && viewItem == changeFile",
+          "group": "navigation"
+        },
         {
           "command": "intelliGit.branch.checkout",
           "when": "view == intelliGit.branches && viewItem == branchRef",
@@ -365,6 +394,11 @@
           "command": "intelliGit.stash.previewPatch",
           "when": "view == intelliGit.stashes && viewItem == stashEntry",
           "group": "navigation"
+        },
+        {
+          "command": "intelliGit.stash.unshelve",
+          "when": "view == intelliGit.stashes && viewItem == stashEntry",
+          "group": "navigation@3"
         },
         {
           "command": "intelliGit.graph.openDetails",

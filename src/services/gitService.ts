@@ -10,7 +10,8 @@ import {
   GraphCommit,
   MergeConflictFile,
   RepositoryContext,
-  StashEntry
+  StashEntry,
+  WorkingTreeChange
 } from '../types';
 
 const FIELD_SEPARATOR = '|~|';
@@ -458,7 +459,7 @@ export class GitService {
     };
   }
 
-  async getChangedFiles(): Promise<Array<{ status: string; path: string }>> {
+  async getChangedFiles(): Promise<WorkingTreeChange[]> {
     const result = await this.runGit(['status', '--porcelain']);
     return result.stdout
       .split('\n')
@@ -468,6 +469,24 @@ export class GitService {
         status: line.slice(0, 2),
         path: line.slice(3)
       }));
+  }
+
+  async stashFiles(paths: string[], message: string, options: { keepIndex: boolean }): Promise<void> {
+    const filtered = [...new Set(paths.map((value) => value.trim()).filter(Boolean))];
+    if (filtered.length === 0) {
+      return;
+    }
+
+    const args = ['stash', 'push', '-m', message];
+    if (options.keepIndex) {
+      args.push('--keep-index');
+    }
+    args.push('--', ...filtered);
+    await this.runGit(args);
+  }
+
+  async unstashToWorkingTree(ref: string): Promise<void> {
+    await this.runGit(['stash', 'pop', ref]);
   }
 
   async getStagedFiles(): Promise<string[]> {
