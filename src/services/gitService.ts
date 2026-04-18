@@ -22,6 +22,10 @@ export class GitService {
     private readonly config: vscode.WorkspaceConfiguration
   ) {}
 
+  get rootPath(): string {
+    return this.context.rootPath;
+  }
+
   async isRepo(): Promise<boolean> {
     try {
       const result = await this.runGit(['rev-parse', '--is-inside-work-tree']);

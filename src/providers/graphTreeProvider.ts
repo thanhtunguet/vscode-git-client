@@ -27,12 +27,13 @@ export class GraphCommitTreeItem extends vscode.TreeItem {
 export class GraphCommitFileTreeItem extends vscode.TreeItem {
   constructor(
     public readonly commit: GraphCommit,
-    public readonly filePath: string
+    public readonly filePath: string,
+    workspaceRoot: string
   ) {
     super(filePath, vscode.TreeItemCollapsibleState.None);
     this.contextValue = 'graphCommitFile';
     this.id = `commitFile:${commit.sha}:${filePath}`;
-    this.iconPath = new vscode.ThemeIcon('file-diff');
+    this.resourceUri = vscode.Uri.file(`${workspaceRoot}/${filePath}`);
     this.tooltip = `${filePath}\n${commit.shortSha} ${commit.subject}`;
     this.command = {
       title: 'Open Diff',
@@ -73,7 +74,7 @@ export class GraphTreeProvider implements vscode.TreeDataProvider<GraphNode> {
         this.commitFilesCache.set(commitSha, files);
       }
 
-      return files.map((filePath) => new GraphCommitFileTreeItem(element.commit, filePath));
+      return files.map((filePath) => new GraphCommitFileTreeItem(element.commit, filePath, this.git.rootPath));
     }
 
     return this.state.graph.map((commit) => new GraphCommitTreeItem(commit));
