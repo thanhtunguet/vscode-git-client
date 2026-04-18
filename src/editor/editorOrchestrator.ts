@@ -4,7 +4,7 @@ import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
 import { CompareView } from '../views/compareView';
 import { CompareResult } from '../types';
-import { CommitFilesViewProvider } from '../views/commitFilesViewProvider';
+import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
 
 export class EditorOrchestrator {
@@ -14,7 +14,7 @@ export class EditorOrchestrator {
     private readonly git: GitService,
     private readonly state: StateStore,
     private readonly contentProvider: VirtualGitContentProvider,
-    private readonly commitFilesView: CommitFilesViewProvider
+    private readonly commitFilesView: CommitFilesTreeProvider
   ) {}
 
   async openMergeConflict(filePath: string): Promise<void> {

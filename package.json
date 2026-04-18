@@ -64,8 +64,7 @@
       "panel": [
         {
           "id": "intelliGit.commitView",
-          "name": "Commit View",
-          "type": "webview"
+          "name": "Commit View"
         }
       ]
     },
@@ -387,6 +386,11 @@
           "command": "intelliGit.graph.compareWithCurrent",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
           "group": "navigation@4"
+        },
+        {
+          "command": "intelliGit.graph.openFileDiff",
+          "when": "view == intelliGit.commitView && viewItem == commitViewFile",
+          "group": "inline"
         }
       ]
     },
