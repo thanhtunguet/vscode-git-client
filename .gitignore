@@ -1,6 +1,6 @@
 .idea/
+.gitnexus
 dist/
 node_modules/
 .DS_Store
 *.vsix
-.gitnexus
