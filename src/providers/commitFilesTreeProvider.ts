@@ -79,7 +79,7 @@ export class CommitFilesTreeProvider implements vscode.TreeDataProvider<CommitVi
   readonly onDidChangeTreeData = this.emitter.event;
   private activeState: ActiveTreeState | undefined;
 
-  constructor(private readonly git: GitService) {}
+  constructor(private readonly git: GitService) { }
 
   getTreeItem(element: CommitViewNode): vscode.TreeItem {
     return element;

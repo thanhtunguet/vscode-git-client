@@ -1,10 +1,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
-import { CompareView } from '../views/compareView';
 import { CompareResult } from '../types';
-import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
+import { CompareView } from '../views/compareView';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
 
 export class EditorOrchestrator {
@@ -15,7 +15,7 @@ export class EditorOrchestrator {
     private readonly state: StateStore,
     private readonly contentProvider: VirtualGitContentProvider,
     private readonly commitFilesView: CommitFilesTreeProvider
-  ) {}
+  ) { }
 
   async openMergeConflict(filePath: string): Promise<void> {
     await this.git.openMergeEditor(filePath);

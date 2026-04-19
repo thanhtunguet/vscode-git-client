@@ -1,15 +1,15 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
-import { ChangeFileTreeItem } from '../providers/changesTreeProvider';
-import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
+import { ChangeFileTreeItem } from '../providers/changesTreeProvider';
 import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
+import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
-import { EditorOrchestrator } from '../editor/editorOrchestrator';
 
 interface QuickAction {
   label: string;
@@ -33,7 +33,7 @@ export class CommandController {
       setFilter(value: string): void;
       refresh(): void;
     }
-  ) {}
+  ) { }
 
   register(context: vscode.ExtensionContext): void {
     const asBranchItem = (value: unknown): BranchTreeItem | undefined => (value instanceof BranchTreeItem ? value : undefined);

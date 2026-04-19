@@ -7,7 +7,7 @@ import { BranchTreeProvider } from './providers/branchTreeProvider';
 import { ChangeFileTreeItem, ChangesTreeProvider } from './providers/changesTreeProvider';
 import { ChangesWebviewProvider } from './providers/changesWebviewProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
-import { CommitFilesTreeProvider, CommitFileTreeItem } from './providers/commitFilesTreeProvider';
+import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';

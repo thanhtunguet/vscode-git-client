@@ -12,7 +12,7 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     private readonly git: GitService,
     private readonly state: StateStore,
     private readonly editor: EditorOrchestrator
-  ) {}
+  ) { }
 
   resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -33,7 +33,7 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     );
 
     webviewView.webview.onDidReceiveMessage(
-      async (msg: { type: string; [k: string]: unknown }) => {
+      async (msg: { type: string;[k: string]: unknown }) => {
         await this._handleMessage(msg);
       },
       null,
@@ -65,7 +65,7 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private async _handleMessage(msg: { type: string; [k: string]: unknown }): Promise<void> {
+  private async _handleMessage(msg: { type: string;[k: string]: unknown }): Promise<void> {
     try {
       switch (msg.type) {
         case 'stageFile':

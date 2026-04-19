@@ -4,8 +4,8 @@ import { Logger } from '../logger';
 import {
   BranchRef,
   CommitDetails,
-  CompareResult,
   CommitFileChange,
+  CompareResult,
   GitCommandResult,
   GraphCommit,
   MergeConflictFile,
@@ -22,7 +22,7 @@ export class GitService {
     private readonly context: RepositoryContext,
     private readonly logger: Logger,
     private readonly config: vscode.WorkspaceConfiguration
-  ) {}
+  ) { }
 
   get rootPath(): string {
     return this.context.rootPath;
@@ -330,9 +330,9 @@ export class GitService {
         const parents = parentsRaw?.split(' ').filter(Boolean) ?? [];
         const refs = refsRaw
           ? refsRaw
-              .split(',')
-              .map((ref) => ref.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((ref) => ref.trim())
+            .filter(Boolean)
           : [];
         return {
           graph,
