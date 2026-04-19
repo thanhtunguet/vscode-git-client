@@ -19,6 +19,7 @@ export class StateStore {
   } = {};
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChange = this.emitter.event;
+  private _changesRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly git: GitService,
@@ -148,7 +149,7 @@ export class StateStore {
   }
 
   attachAutoRefresh(context: vscode.ExtensionContext): void {
-    const watcher = vscode.workspace.createFileSystemWatcher('**/.git/{HEAD,index,refs/**,packed-refs,logs/**}');
+    const gitWatcher = vscode.workspace.createFileSystemWatcher('**/.git/{HEAD,index,refs/**,packed-refs,logs/**}');
 
     const onChange = async (): Promise<void> => {
       try {
@@ -158,10 +159,32 @@ export class StateStore {
       }
     };
 
-    watcher.onDidCreate(onChange, this, context.subscriptions);
-    watcher.onDidChange(onChange, this, context.subscriptions);
-    watcher.onDidDelete(onChange, this, context.subscriptions);
-    context.subscriptions.push(watcher);
+    gitWatcher.onDidCreate(onChange, this, context.subscriptions);
+    gitWatcher.onDidChange(onChange, this, context.subscriptions);
+    gitWatcher.onDidDelete(onChange, this, context.subscriptions);
+    context.subscriptions.push(gitWatcher);
+
+    // Watch for new/deleted/modified files in the workspace to catch untracked changes.
+    const folders = vscode.workspace.workspaceFolders;
+    if (folders && folders.length > 0) {
+      const workspaceWatcher = vscode.workspace.createFileSystemWatcher(
+        new vscode.RelativePattern(folders[0], '**/*')
+      );
+      const scheduleChanges = (): void => { this._scheduleRefreshChanges(); };
+      workspaceWatcher.onDidCreate(scheduleChanges, this, context.subscriptions);
+      workspaceWatcher.onDidDelete(scheduleChanges, this, context.subscriptions);
+      workspaceWatcher.onDidChange(scheduleChanges, this, context.subscriptions);
+      context.subscriptions.push(workspaceWatcher);
+    }
+  }
+
+  private _scheduleRefreshChanges(): void {
+    if (this._changesRefreshTimer) { clearTimeout(this._changesRefreshTimer); }
+    this._changesRefreshTimer = setTimeout(() => {
+      void this.refreshChanges().catch((err) => {
+        this.logger.warn(`Auto-refresh changes failed: ${String(err)}`);
+      });
+    }, 400);
   }
 
   private pushComparePair(pair: ComparePair): void {

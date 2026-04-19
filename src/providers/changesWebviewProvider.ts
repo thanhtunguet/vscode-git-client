@@ -51,6 +51,12 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     if (!this._view) { return; }
     let headMessage = '';
     try { headMessage = await this.git.getHeadCommitMessage(); } catch { /* ignore */ }
+
+    const count = this.state.changes.length;
+    this._view.badge = count > 0
+      ? { tooltip: `${count} change${count === 1 ? '' : 's'}`, value: count }
+      : undefined;
+
     void this._view.webview.postMessage({
       type: 'update',
       staged: this.state.stagedChanges,
