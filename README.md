@@ -2,10 +2,20 @@
 
 IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core parity and your requested UI:
 
-- Left sidebar sections: `Branches`, `Stashes`, `Git Graph`
+- Left sidebar sections: `Changes`, `Branches`, `Stashes`, `Git Graph`
 - Main editor workflows: `3-way merge`, `side-by-side diff`, `branch comparison`
 
 ## Implemented Features
+
+### Changes (Webview)
+- Working tree and index status grouped by state (modified, staged, untracked, conflicted)
+- File diff from change entry
+- Conflict resolution shortcuts:
+  - Accept Ours
+  - Accept Theirs
+  - Accept Both (open merge editor)
+- In-progress operation banner (merge / rebase / cherry-pick) with Continue, Skip, Abort actions
+- Stash selected changes
 
 ### Branches (Tree View)
 - Hierarchical branch tree grouped by prefix (`feature/*`, `release/*`, etc.)
@@ -32,6 +42,8 @@ IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core 
   - Drop (guarded)
   - Rename message
   - Patch preview (diff document)
+  - Unshelve (apply stash to working tree without removing)
+  - Stash selected changes from Changes view
 
 ### Git Graph (Tree View)
 - Commit list with graph-like glyph, refs, metadata, author/date
@@ -43,11 +55,16 @@ IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core 
 - Commit actions:
   - Checkout commit (detached, guarded)
   - Create branch at commit
+  - Create tag at commit
   - Cherry-pick commit
   - Revert commit
   - Cherry-pick range
   - Compare commit with current branch
   - Interactive rebase from selected commit
+  - Go to parent commit
+  - Create patch from commit
+  - Open file at revision
+  - Show repository at revision
 - Graph filters:
   - branch/ref
   - author
@@ -90,7 +107,9 @@ IntelliGit is an IntelliJ-like Git client extension for VS Code focused on core 
   - Central cached state for branches/stashes/graph/compare
   - Auto-refresh on `.git` file changes
 - `src/providers/*TreeProvider.ts`
-  - Branch, stash, and graph sidebar providers
+  - Branch, stash, and graph sidebar tree providers
+- `src/providers/changesWebviewProvider.ts`
+  - Webview-based Changes panel (working tree status, conflict resolution, operation banner)
 - `src/commands/commandController.ts`
   - Command registration, action orchestration, guardrails
 - `src/editor/editorOrchestrator.ts`
@@ -110,8 +129,11 @@ Not exhaustive list of key command IDs:
 - `intelliGit.diff.open`
 - `intelliGit.compare.open`
 - `intelliGit.merge.*`
+- `intelliGit.conflict.*` (acceptOurs, acceptTheirs, acceptBoth)
+- `intelliGit.operation.*` (abort, continue, skip)
 - `intelliGit.git.*`
 - `intelliGit.stage.*`
+- `intelliGit.changes.*`
 - `intelliGit.commit.amend`
 - `intelliGit.fileHistory.open`
 - `intelliGit.fileBlame.open`
