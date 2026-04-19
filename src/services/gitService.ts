@@ -876,8 +876,26 @@ export class GitService {
         input2: { uri: writeTemp('theirs', theirs), title: 'Theirs (Incoming)', description: filePath },
         output: outputUri
       });
+      await this.applyMergeEditorColumnLayout();
     } catch {
       await vscode.commands.executeCommand('vscode.openWith', outputUri, 'mergeEditor');
+      await this.applyMergeEditorColumnLayout();
+    }
+  }
+
+  private async applyMergeEditorColumnLayout(): Promise<void> {
+    const commandCandidates = [
+      'merge.columnLayout',
+      'mergeEditor.setColumnLayout',
+      'workbench.action.mergeEditor.setColumnLayout'
+    ];
+    for (const cmd of commandCandidates) {
+      try {
+        await vscode.commands.executeCommand(cmd);
+        return;
+      } catch {
+        // try next candidate
+      }
     }
   }
 
