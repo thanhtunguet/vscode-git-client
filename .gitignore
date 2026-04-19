@@ -1,6 +1,20 @@
+```
+# Dependencies
+target/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
 .idea/
-.gitnexus
-dist/
-node_modules/
-.DS_Store
-*.vsix
+
+# Rust-specific
+Cargo.lock
+```
