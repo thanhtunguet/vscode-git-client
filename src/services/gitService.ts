@@ -7,6 +7,7 @@ import {
   CommitFileChange,
   CompareResult,
   GitCommandResult,
+  GitOperationState,
   GraphCommit,
   MergeConflictFile,
   RepositoryContext,
@@ -157,6 +158,161 @@ export class GitService {
 
   async rebaseInteractive(base: string): Promise<void> {
     await this.runGit(['rebase', '-i', base]);
+  }
+
+  async mergeAbort(): Promise<void> {
+    await this.runGit(['merge', '--abort']);
+  }
+
+  async rebaseAbort(): Promise<void> {
+    await this.runGit(['rebase', '--abort']);
+  }
+
+  async rebaseContinue(): Promise<void> {
+    await this.runGit(['-c', 'core.editor=true', 'rebase', '--continue']);
+  }
+
+  async rebaseSkip(): Promise<void> {
+    await this.runGit(['rebase', '--skip']);
+  }
+
+  async cherryPickAbort(): Promise<void> {
+    await this.runGit(['cherry-pick', '--abort']);
+  }
+
+  async cherryPickContinue(): Promise<void> {
+    await this.runGit(['-c', 'core.editor=true', 'cherry-pick', '--continue']);
+  }
+
+  async cherryPickSkip(): Promise<void> {
+    await this.runGit(['cherry-pick', '--skip']);
+  }
+
+  async revertAbort(): Promise<void> {
+    await this.runGit(['revert', '--abort']);
+  }
+
+  async revertContinue(): Promise<void> {
+    await this.runGit(['-c', 'core.editor=true', 'revert', '--continue']);
+  }
+
+  async resolveConflictOurs(path: string): Promise<void> {
+    await this.runGit(['checkout', '--ours', '--', path]);
+    await this.runGit(['add', '--', path]);
+  }
+
+  async resolveConflictTheirs(path: string): Promise<void> {
+    await this.runGit(['checkout', '--theirs', '--', path]);
+    await this.runGit(['add', '--', path]);
+  }
+
+  async getOperationState(): Promise<GitOperationState> {
+    const gitDir = await this.getGitDir();
+    if (!gitDir) {
+      return { kind: 'none' };
+    }
+
+    const readFile = async (relative: string): Promise<string | undefined> => {
+      try {
+        const uri = vscode.Uri.file(`${gitDir}/${relative}`);
+        const bytes = await vscode.workspace.fs.readFile(uri);
+        return Buffer.from(bytes).toString('utf8').trim();
+      } catch {
+        return undefined;
+      }
+    };
+
+    const exists = async (relative: string): Promise<boolean> => {
+      try {
+        await vscode.workspace.fs.stat(vscode.Uri.file(`${gitDir}/${relative}`));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const shortenRef = async (value?: string): Promise<string | undefined> => {
+      if (!value) { return undefined; }
+      try {
+        const result = await this.runGit(['rev-parse', '--short', value]);
+        return result.stdout.trim() || value.slice(0, 8);
+      } catch {
+        return value.slice(0, 8);
+      }
+    };
+
+    // Rebase: interactive/merge backend
+    if (await exists('rebase-merge')) {
+      const [head, onto, msgnum, end] = await Promise.all([
+        readFile('rebase-merge/head-name'),
+        readFile('rebase-merge/onto'),
+        readFile('rebase-merge/msgnum'),
+        readFile('rebase-merge/end')
+      ]);
+      return {
+        kind: 'rebase',
+        headShort: head?.replace(/^refs\/heads\//, ''),
+        ontoShort: await shortenRef(onto),
+        stepCurrent: msgnum ? Number(msgnum) : undefined,
+        stepTotal: end ? Number(end) : undefined
+      };
+    }
+
+    // Rebase: apply backend
+    if (await exists('rebase-apply')) {
+      const [head, onto, next, last] = await Promise.all([
+        readFile('rebase-apply/head-name'),
+        readFile('rebase-apply/onto'),
+        readFile('rebase-apply/next'),
+        readFile('rebase-apply/last')
+      ]);
+      return {
+        kind: 'rebase',
+        headShort: head?.replace(/^refs\/heads\//, ''),
+        ontoShort: await shortenRef(onto),
+        stepCurrent: next ? Number(next) : undefined,
+        stepTotal: last ? Number(last) : undefined
+      };
+    }
+
+    if (await exists('MERGE_HEAD')) {
+      const [mergeHead, mergeMsg] = await Promise.all([
+        readFile('MERGE_HEAD'),
+        readFile('MERGE_MSG')
+      ]);
+      return {
+        kind: 'merge',
+        headShort: await shortenRef(mergeHead?.split('\n')[0]),
+        message: mergeMsg?.split('\n')[0]
+      };
+    }
+
+    if (await exists('CHERRY_PICK_HEAD')) {
+      const head = await readFile('CHERRY_PICK_HEAD');
+      return { kind: 'cherry-pick', headShort: await shortenRef(head) };
+    }
+
+    if (await exists('REVERT_HEAD')) {
+      const head = await readFile('REVERT_HEAD');
+      return { kind: 'revert', headShort: await shortenRef(head) };
+    }
+
+    return { kind: 'none' };
+  }
+
+  private _gitDirCache: string | undefined;
+  private async getGitDir(): Promise<string | undefined> {
+    if (this._gitDirCache) { return this._gitDirCache; }
+    try {
+      const result = await this.runGit(['rev-parse', '--git-dir']);
+      const raw = result.stdout.trim();
+      if (!raw) { return undefined; }
+      const resolved = raw.startsWith('/') ? raw : `${this.context.rootPath}/${raw}`;
+      this._gitDirCache = resolved;
+      return resolved;
+    } catch {
+      return undefined;
+    }
   }
 
   async cherryPick(ref: string): Promise<void> {

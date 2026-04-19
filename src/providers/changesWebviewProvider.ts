@@ -61,7 +61,9 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
       type: 'update',
       staged: this.state.stagedChanges,
       unstaged: this.state.unstagedChanges,
-      headMessage
+      headMessage,
+      operation: this.state.operationState,
+      conflicts: this.state.conflicts.map((c) => c.path)
     });
   }
 
@@ -145,6 +147,36 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
           });
           break;
         }
+
+        case 'openMergeEditor':
+          await this.editor.openMergeConflict(msg.path as string);
+          break;
+
+        case 'acceptOurs':
+          await this.git.resolveConflictOurs(msg.path as string);
+          await this.state.refreshChanges();
+          break;
+
+        case 'acceptTheirs':
+          await this.git.resolveConflictTheirs(msg.path as string);
+          await this.state.refreshChanges();
+          break;
+
+        case 'acceptBoth':
+          await this.editor.openMergeConflict(msg.path as string);
+          break;
+
+        case 'operationAbort':
+          await vscode.commands.executeCommand('intelliGit.operation.abort');
+          break;
+
+        case 'operationContinue':
+          await vscode.commands.executeCommand('intelliGit.operation.continue');
+          break;
+
+        case 'operationSkip':
+          await vscode.commands.executeCommand('intelliGit.operation.skip');
+          break;
       }
     } catch (err) {
       void vscode.window.showErrorMessage(String(err));
@@ -206,9 +238,26 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 .ditem:hover{background:var(--vscode-menu-selectionBackground);color:var(--vscode-menu-selectionForeground)}
 .spin{display:inline-block;animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.op-banner{display:none;padding:8px;background:var(--vscode-inputValidation-warningBackground,#5a2d02);color:var(--vscode-inputValidation-warningForeground,#ffcc00);border-bottom:1px solid var(--vscode-inputValidation-warningBorder,#b89500);font-size:12px}
+.op-banner.active{display:block}
+.op-title{font-weight:600;margin-bottom:4px}
+.op-detail{opacity:.85;margin-bottom:6px;font-size:11px}
+.op-actions{display:flex;gap:4px;flex-wrap:wrap}
+.op-actions .btn{padding:3px 8px;font-size:11px}
+.cf-item{background:color-mix(in srgb,var(--vscode-inputValidation-warningBackground,#5a2d02) 18%,transparent)}
 </style>
 </head>
 <body>
+
+<div class="op-banner" id="opBanner">
+  <div class="op-title" id="opTitle"></div>
+  <div class="op-detail" id="opDetail"></div>
+  <div class="op-actions">
+    <button class="btn" id="opContinue">Continue</button>
+    <button class="btn btn-sec" id="opSkip">Skip</button>
+    <button class="btn btn-sec" id="opAbort">Abort</button>
+  </div>
+</div>
 
 <div class="commit-panel">
   <textarea id="msg" placeholder="Message (Ctrl+Enter to commit)"></textarea>
@@ -358,16 +407,30 @@ function fileParts(p) {
   const i = p.lastIndexOf('/');
   return i === -1 ? { name: p, dir: '' } : { name: p.slice(i+1), dir: p.slice(0, i) };
 }
+let _conflicts = new Set();
 function renderFiles(changes, section) {
   if (!changes.length) return '<div class="empty">' + (section==='staged'?'No staged changes':'No changes') + '</div>';
   return changes.map(c => {
     const { name, dir } = fileParts(c.path);
-    const { label, cls } = statusInfo(c.status, section);
+    const isConflict = _conflicts.has(c.path);
+    const { label, cls } = isConflict ? { label: '!', cls: 'C' } : statusInfo(c.status, section);
     const ep = esc(c.path), es = esc(c.status);
-    const actions = section === 'staged'
-      ? \`<div class="fa"><button class="icon-btn" onclick="act('unstageFile','\${ep}','\${es}','staged',event)" title="Unstage">↩</button></div>\`
-      : \`<div class="fa"><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
-    return \`<div class="file-item" onclick="act('openDiff','\${ep}','\${es}','\${section}',event)">
+    let actions;
+    if (isConflict) {
+      actions = \`<div class="fa">
+        <button class="icon-btn" onclick="act('openMergeEditor','\${ep}','\${es}','\${section}',event)" title="Open 3-way Merge Editor">⇔</button>
+        <button class="icon-btn" onclick="act('acceptOurs','\${ep}','\${es}','\${section}',event)" title="Accept Yours">Y</button>
+        <button class="icon-btn" onclick="act('acceptTheirs','\${ep}','\${es}','\${section}',event)" title="Accept Theirs">T</button>
+        <button class="icon-btn" onclick="act('acceptBoth','\${ep}','\${es}','\${section}',event)" title="Accept Both (open merge editor)">B</button>
+      </div>\`;
+    } else if (section === 'staged') {
+      actions = \`<div class="fa"><button class="icon-btn" onclick="act('unstageFile','\${ep}','\${es}','staged',event)" title="Unstage">↩</button></div>\`;
+    } else {
+      actions = \`<div class="fa"><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
+    }
+    const clickAction = isConflict ? 'openMergeEditor' : 'openDiff';
+    const rowCls = isConflict ? 'file-item cf-item' : 'file-item';
+    return \`<div class="\${rowCls}" onclick="act('\${clickAction}','\${ep}','\${es}','\${section}',event)">
       <span class="badge \${cls}">\${label}</span>
       <span class="fname" title="\${ep}">\${esc(name)}</span>
       \${dir ? \`<span class="fdir">\${esc(dir)}</span>\` : ''}
@@ -377,8 +440,33 @@ function renderFiles(changes, section) {
 }
 
 function act(type, path, status, section, e) {
-  if (type !== 'openDiff') e.stopPropagation();
+  if (type !== 'openDiff' && type !== 'openMergeEditor') e.stopPropagation();
   vscode.postMessage({ type, path, status, section });
+}
+
+document.getElementById('opAbort').addEventListener('click', () => vscode.postMessage({ type: 'operationAbort' }));
+document.getElementById('opContinue').addEventListener('click', () => vscode.postMessage({ type: 'operationContinue' }));
+document.getElementById('opSkip').addEventListener('click', () => vscode.postMessage({ type: 'operationSkip' }));
+
+function renderOperation(op, conflictCount) {
+  const banner = document.getElementById('opBanner');
+  if (!op || op.kind === 'none') { banner.classList.remove('active'); return; }
+  banner.classList.add('active');
+  const labels = { merge: 'Merging', rebase: 'Rebasing', 'cherry-pick': 'Cherry-picking', revert: 'Reverting' };
+  let title = labels[op.kind] || op.kind;
+  if (op.headShort) title += ' · ' + esc(op.headShort);
+  if (op.ontoShort) title += ' → ' + esc(op.ontoShort);
+  document.getElementById('opTitle').textContent = title;
+  const parts = [];
+  if (typeof op.stepCurrent === 'number' && typeof op.stepTotal === 'number') parts.push('Step ' + op.stepCurrent + '/' + op.stepTotal);
+  parts.push(conflictCount + ' conflict' + (conflictCount === 1 ? '' : 's'));
+  if (op.message) parts.push(esc(op.message));
+  document.getElementById('opDetail').textContent = parts.join(' · ');
+  const skip = document.getElementById('opSkip');
+  skip.style.display = (op.kind === 'rebase' || op.kind === 'cherry-pick') ? '' : 'none';
+  const cont = document.getElementById('opContinue');
+  cont.disabled = conflictCount > 0;
+  cont.title = conflictCount > 0 ? 'Resolve all conflicts first' : '';
 }
 
 /* ── messages from extension ── */
@@ -387,6 +475,8 @@ window.addEventListener('message', e => {
   switch (m.type) {
     case 'update':
       _headMsg = m.headMessage || '';
+      _conflicts = new Set(m.conflicts || []);
+      renderOperation(m.operation, _conflicts.size);
       document.getElementById('cntStaged').textContent = '(' + m.staged.length + ')';
       document.getElementById('cntChanges').textContent = '(' + m.unstaged.length + ')';
       document.getElementById('sbStaged').innerHTML = renderFiles(m.staged, 'staged');

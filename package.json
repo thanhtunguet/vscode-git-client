@@ -244,6 +244,36 @@
         "title": "Finalize Merge Resolution"
       },
       {
+        "command": "intelliGit.conflict.acceptOurs",
+        "title": "Accept Yours (Ours)",
+        "category": "IntelliGit"
+      },
+      {
+        "command": "intelliGit.conflict.acceptTheirs",
+        "title": "Accept Theirs",
+        "category": "IntelliGit"
+      },
+      {
+        "command": "intelliGit.conflict.acceptBoth",
+        "title": "Accept Both (Open Merge Editor)",
+        "category": "IntelliGit"
+      },
+      {
+        "command": "intelliGit.operation.abort",
+        "title": "Abort Merge/Rebase/Cherry-Pick",
+        "category": "IntelliGit"
+      },
+      {
+        "command": "intelliGit.operation.continue",
+        "title": "Continue Merge/Rebase/Cherry-Pick",
+        "category": "IntelliGit"
+      },
+      {
+        "command": "intelliGit.operation.skip",
+        "title": "Skip Commit (Rebase/Cherry-Pick)",
+        "category": "IntelliGit"
+      },
+      {
         "command": "intelliGit.git.pushWithPreview",
         "title": "Push (Preview)"
       },
@@ -318,6 +348,21 @@
           "command": "intelliGit.quickActions",
           "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.operation.continue",
+          "when": "view == intelliGit.changes && intelliGit.operation != none",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.operation.skip",
+          "when": "view == intelliGit.changes && (intelliGit.operation == rebase || intelliGit.operation == cherry-pick)",
+          "group": "navigation@3"
+        },
+        {
+          "command": "intelliGit.operation.abort",
+          "when": "view == intelliGit.changes && intelliGit.operation != none",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -330,6 +375,21 @@
           "command": "intelliGit.changes.stashSelected",
           "when": "view == intelliGit.changes && viewItem == changeFile",
           "group": "navigation"
+        },
+        {
+          "command": "intelliGit.conflict.acceptOurs",
+          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
+          "group": "1_resolve@1"
+        },
+        {
+          "command": "intelliGit.conflict.acceptTheirs",
+          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
+          "group": "1_resolve@2"
+        },
+        {
+          "command": "intelliGit.conflict.acceptBoth",
+          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
+          "group": "1_resolve@3"
         },
         {
           "command": "intelliGit.branch.checkout",

@@ -86,6 +86,17 @@ export interface MergeConflictFile {
   readonly status: string;
 }
 
+export type GitOperationKind = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | 'none';
+
+export interface GitOperationState {
+  readonly kind: GitOperationKind;
+  readonly headShort?: string;
+  readonly ontoShort?: string;
+  readonly message?: string;
+  readonly stepCurrent?: number;
+  readonly stepTotal?: number;
+}
+
 export interface ComparePair {
   readonly left: string;
   readonly right: string;

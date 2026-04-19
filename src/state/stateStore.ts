@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from '../logger';
 import { GitService } from '../services/gitService';
-import { BranchRef, ComparePair, CompareResult, GraphCommit, StashEntry, WorkingTreeChange } from '../types';
+import { BranchRef, ComparePair, CompareResult, GitOperationState, GraphCommit, MergeConflictFile, StashEntry, WorkingTreeChange } from '../types';
 
 export class StateStore {
   private _branches: BranchRef[] = [];
@@ -9,6 +9,8 @@ export class StateStore {
   private _changes: WorkingTreeChange[] = [];
   private _graph: GraphCommit[] = [];
   private _compareResult: CompareResult | undefined;
+  private _operationState: GitOperationState = { kind: 'none' };
+  private _conflicts: MergeConflictFile[] = [];
   private _recentComparePairs: ComparePair[] = [];
   private _graphFilters: {
     branch?: string;
@@ -59,6 +61,14 @@ export class StateStore {
     return this._compareResult;
   }
 
+  get operationState(): GitOperationState {
+    return this._operationState;
+  }
+
+  get conflicts(): MergeConflictFile[] {
+    return this._conflicts;
+  }
+
   get recentComparePairs(): ComparePair[] {
     return [...this._recentComparePairs];
   }
@@ -80,23 +90,31 @@ export class StateStore {
       this._changes = [];
       this._graph = [];
       this._compareResult = undefined;
+      this._operationState = { kind: 'none' };
+      this._conflicts = [];
       this.emitter.fire();
       return;
     }
 
     const maxGraphCommits = this.configuration.get<number>('maxGraphCommits', 200);
 
-    const [branches, stashes, changes, graph] = await Promise.all([
+    const [branches, stashes, changes, graph, operationState, conflicts] = await Promise.all([
       this.git.getBranches(),
       this.git.getStashes(),
       this.git.getChangedFiles(),
-      this.git.getGraph(maxGraphCommits, this._graphFilters)
+      this.git.getGraph(maxGraphCommits, this._graphFilters),
+      this.git.getOperationState(),
+      this.git.getMergeConflicts()
     ]);
 
     this._branches = branches;
     this._stashes = stashes;
     this._changes = changes;
     this._graph = graph;
+    this._operationState = operationState;
+    this._conflicts = conflicts;
+    void vscode.commands.executeCommand('setContext', 'intelliGit.operation', operationState.kind);
+    void vscode.commands.executeCommand('setContext', 'intelliGit.hasConflicts', conflicts.length > 0);
     this.emitter.fire();
   }
 
@@ -111,7 +129,16 @@ export class StateStore {
   }
 
   async refreshChanges(): Promise<void> {
-    this._changes = await this.git.getChangedFiles();
+    const [changes, operationState, conflicts] = await Promise.all([
+      this.git.getChangedFiles(),
+      this.git.getOperationState(),
+      this.git.getMergeConflicts()
+    ]);
+    this._changes = changes;
+    this._operationState = operationState;
+    this._conflicts = conflicts;
+    void vscode.commands.executeCommand('setContext', 'intelliGit.operation', operationState.kind);
+    void vscode.commands.executeCommand('setContext', 'intelliGit.hasConflicts', conflicts.length > 0);
     this.emitter.fire();
   }
 

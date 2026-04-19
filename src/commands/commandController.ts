@@ -823,6 +823,87 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
+    register('intelliGit.conflict.acceptOurs', async (arg?: unknown) => {
+      const path = this.pickConflictPathArg(arg) ?? (await this.pickConflictPath('Accept Yours (ours) for which file?'));
+      if (!path) { return; }
+      await this.git.resolveConflictOurs(path);
+      await this.state.refreshChanges();
+      void vscode.window.showInformationMessage(`Accepted yours: ${path}`);
+    });
+
+    register('intelliGit.conflict.acceptTheirs', async (arg?: unknown) => {
+      const path = this.pickConflictPathArg(arg) ?? (await this.pickConflictPath('Accept Theirs for which file?'));
+      if (!path) { return; }
+      await this.git.resolveConflictTheirs(path);
+      await this.state.refreshChanges();
+      void vscode.window.showInformationMessage(`Accepted theirs: ${path}`);
+    });
+
+    register('intelliGit.conflict.acceptBoth', async (arg?: unknown) => {
+      const path = this.pickConflictPathArg(arg) ?? (await this.pickConflictPath('Accept Both: open merge editor for which file?'));
+      if (!path) { return; }
+      await this.editor.openMergeConflict(path);
+    });
+
+    register('intelliGit.operation.abort', async () => {
+      const state = await this.git.getOperationState();
+      if (state.kind === 'none') {
+        void vscode.window.showInformationMessage('No merge/rebase/cherry-pick/revert in progress.');
+        return;
+      }
+      const confirmed = await confirmDangerousAction({
+        title: `Abort ${state.kind}`,
+        detail: 'This will reset the working tree to before the operation started.',
+        acceptLabel: 'Abort'
+      });
+      if (!confirmed) { return; }
+      try {
+        if (state.kind === 'merge') { await this.git.mergeAbort(); }
+        else if (state.kind === 'rebase') { await this.git.rebaseAbort(); }
+        else if (state.kind === 'cherry-pick') { await this.git.cherryPickAbort(); }
+        else if (state.kind === 'revert') { await this.git.revertAbort(); }
+      } finally {
+        await this.state.refreshAll();
+      }
+    });
+
+    register('intelliGit.operation.continue', async () => {
+      const state = await this.git.getOperationState();
+      if (state.kind === 'none') {
+        void vscode.window.showInformationMessage('No merge/rebase/cherry-pick/revert in progress.');
+        return;
+      }
+      const conflicts = await this.git.getMergeConflicts();
+      if (conflicts.length > 0) {
+        void vscode.window.showWarningMessage(`Resolve all conflicts before continuing (${conflicts.length} remaining).`);
+        return;
+      }
+      try {
+        if (state.kind === 'merge') {
+          await vscode.commands.executeCommand('intelliGit.merge.finalize');
+          return;
+        }
+        if (state.kind === 'rebase') { await this.git.rebaseContinue(); }
+        else if (state.kind === 'cherry-pick') { await this.git.cherryPickContinue(); }
+        else if (state.kind === 'revert') { await this.git.revertContinue(); }
+      } finally {
+        await this.state.refreshAll();
+      }
+    });
+
+    register('intelliGit.operation.skip', async () => {
+      const state = await this.git.getOperationState();
+      if (state.kind === 'rebase') {
+        await this.git.rebaseSkip();
+      } else if (state.kind === 'cherry-pick') {
+        await this.git.cherryPickSkip();
+      } else {
+        void vscode.window.showInformationMessage('Skip is only available during rebase or cherry-pick.');
+        return;
+      }
+      await this.state.refreshAll();
+    });
+
     register('intelliGit.git.pushWithPreview', async () => {
       const preview = await this.git.getOutgoingIncomingPreview();
       const confirmed = await confirmDangerousAction({
@@ -1101,6 +1182,27 @@ export class CommandController {
     } else if (followUp === 'Cherry-pick commit range') {
       await vscode.commands.executeCommand('intelliGit.graph.cherryPickRange');
     }
+  }
+
+  private pickConflictPathArg(arg: unknown): string | undefined {
+    if (typeof arg === 'string' && arg.trim()) { return arg.trim(); }
+    if (arg instanceof ChangeFileTreeItem) { return arg.filePath; }
+    return undefined;
+  }
+
+  private async pickConflictPath(title: string): Promise<string | undefined> {
+    const conflicts = this.state.conflicts.length > 0
+      ? this.state.conflicts
+      : await this.git.getMergeConflicts();
+    if (conflicts.length === 0) {
+      void vscode.window.showInformationMessage('No conflicted files.');
+      return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(
+      conflicts.map((c) => ({ label: c.path, description: c.status })),
+      { title }
+    );
+    return picked?.label;
   }
 
   private async pickBranchName(title = 'Pick branch', remoteOnly = false): Promise<string | undefined> {
