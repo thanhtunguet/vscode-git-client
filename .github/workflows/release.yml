@@ -25,6 +25,9 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
+      - name: Build extension
+        run: npm run compile
+
       - name: Package extension
         run: vsce package --no-dependencies
 
