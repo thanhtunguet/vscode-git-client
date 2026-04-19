@@ -42,6 +42,14 @@ export class StateStore {
     return this._changes;
   }
 
+  get stagedChanges(): WorkingTreeChange[] {
+    return this._changes.filter((c) => c.status[0] !== ' ' && c.status[0] !== '?');
+  }
+
+  get unstagedChanges(): WorkingTreeChange[] {
+    return this._changes.filter((c) => c.status[1] !== ' ');
+  }
+
   get graph(): GraphCommit[] {
     return this._graph;
   }

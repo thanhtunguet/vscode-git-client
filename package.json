@@ -47,6 +47,7 @@
         {
           "id": "intelliGit.changes",
           "name": "Changes",
+          "type": "webview",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
         },

@@ -5,6 +5,7 @@ import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
 import { ChangeFileTreeItem, ChangesTreeProvider } from './providers/changesTreeProvider';
+import { ChangesWebviewProvider } from './providers/changesWebviewProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider, CommitFileTreeItem } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
@@ -40,7 +41,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
     context.subscriptions.push(
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
-      vscode.window.createTreeView('intelliGit.changes', { treeDataProvider: emptyProvider }),
+      vscode.window.registerWebviewViewProvider('intelliGit.changes', {
+        resolveWebviewView(view) { view.webview.html = '<body style="color:var(--vscode-foreground);padding:8px">Open a workspace to use IntelliGit.</body>'; }
+      }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.commitView', { treeDataProvider: emptyProvider })
@@ -64,11 +67,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     treeDataProvider: stashProvider,
     showCollapseAll: true
   });
-  const changesView = vscode.window.createTreeView('intelliGit.changes', {
-    treeDataProvider: changesProvider,
-    showCollapseAll: true,
-    canSelectMany: true
-  });
   const graphView = vscode.window.createTreeView('intelliGit.graph', {
     treeDataProvider: graphProvider,
     showCollapseAll: true,
@@ -82,20 +80,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     canSelectMany: true
   });
 
-  context.subscriptions.push(
-    branchView,
-    changesView,
-    stashView,
-    graphView,
-    commitView,
-    commitDecorationProvider,
-    vscode.window.registerFileDecorationProvider(commitDecorationProvider)
-  );
-
   const virtualProvider = new VirtualGitContentProvider();
   context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider('intelligit', virtualProvider));
 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
+
+  const changesWebviewProvider = new ChangesWebviewProvider(context.extensionUri, gitService, stateStore, editor);
+
+  context.subscriptions.push(
+    branchView,
+    stashView,
+    graphView,
+    commitView,
+    commitDecorationProvider,
+    vscode.window.registerFileDecorationProvider(commitDecorationProvider),
+    vscode.window.registerWebviewViewProvider('intelliGit.changes', changesWebviewProvider)
+  );
   const commandController = new CommandController(
     gitService,
     stateStore,

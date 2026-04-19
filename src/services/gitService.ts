@@ -630,6 +630,59 @@ export class GitService {
     return result.stdout.trim();
   }
 
+  async unstageAll(): Promise<void> {
+    await this.runGit(['restore', '--staged', '.']);
+  }
+
+  async discardFile(filePath: string, isUntracked: boolean): Promise<void> {
+    if (isUntracked) {
+      await this.runGit(['clean', '-f', '--', filePath]);
+    } else {
+      await this.runGit(['restore', '--', filePath]);
+    }
+  }
+
+  async generateCommitMessage(): Promise<string> {
+    let diff = '';
+    try {
+      const staged = await this.runGit(['diff', '--staged']);
+      diff = staged.stdout;
+    } catch { /* ignore */ }
+
+    if (!diff.trim()) {
+      try {
+        const unstaged = await this.runGit(['diff']);
+        diff = unstaged.stdout;
+      } catch { /* ignore */ }
+    }
+
+    if (!diff.trim()) {
+      throw new Error('No changes to generate a commit message from.');
+    }
+
+    const maxLen = 8000;
+    const truncated = diff.length > maxLen ? diff.slice(0, maxLen) + '\n... (diff truncated)' : diff;
+
+    const [model] = await vscode.lm.selectChatModels({ family: 'gpt-4o' });
+    if (!model) {
+      throw new Error('No AI model available. Install GitHub Copilot to enable this feature.');
+    }
+
+    const cts = new vscode.CancellationTokenSource();
+    const messages = [
+      vscode.LanguageModelChatMessage.User(
+        `Write a concise git commit message (imperative mood, 50 chars or less for the subject line) for this diff. Output only the commit message, nothing else:\n\n${truncated}`
+      )
+    ];
+
+    const response = await model.sendRequest(messages, {}, cts.token);
+    let result = '';
+    for await (const chunk of response.text) {
+      result += chunk;
+    }
+    return result.trim();
+  }
+
   async fileHistory(path: string): Promise<GraphCommit[]> {
     const format = `%m${FIELD_SEPARATOR}%H${FIELD_SEPARATOR}%h${FIELD_SEPARATOR}%P${FIELD_SEPARATOR}%D${FIELD_SEPARATOR}%an${FIELD_SEPARATOR}%aI${FIELD_SEPARATOR}%s${RECORD_SEPARATOR}`;
     const result = await this.runGit(['log', '--date=iso-strict', '--follow', `--format=${format}`, '--', path]);
