@@ -603,6 +603,12 @@
           "type": "string",
           "default": "[A-Z]+-\\d+",
           "description": "Regular expression used to extract a ticket id from the current branch name for the {ticket} placeholder."
+        },
+        "intelliGit.aiGenerateTimeoutMs": {
+          "type": "number",
+          "default": 5000,
+          "minimum": 1000,
+          "description": "Timeout in milliseconds for AI commit message generation. Generation is cancelled if it exceeds this limit."
         }
       }
     }

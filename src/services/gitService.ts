@@ -810,7 +810,7 @@ export class GitService {
     }
   }
 
-  async generateCommitMessage(): Promise<string> {
+  async generateCommitMessage(token?: vscode.CancellationToken): Promise<string> {
     let diff = '';
     try {
       const staged = await this.runGit(['diff', '--staged']);
@@ -837,6 +837,9 @@ export class GitService {
     }
 
     const cts = new vscode.CancellationTokenSource();
+    if (token) {
+      token.onCancellationRequested(() => cts.cancel());
+    }
     const messages = [
       vscode.LanguageModelChatMessage.User(
         `Write a concise git commit message (imperative mood, 50 chars or less for the subject line) for this diff. Output only the commit message, nothing else:\n\n${truncated}`

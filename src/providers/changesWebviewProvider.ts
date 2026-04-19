@@ -164,16 +164,26 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
           void this._view?.webview.postMessage({ type: 'clearMessage' });
           break;
 
-        case 'generateMessage':
+        case 'generateMessage': {
+          const timeoutMs = vscode.workspace.getConfiguration('intelliGit').get<number>('aiGenerateTimeoutMs', 5000);
           void this._view?.webview.postMessage({ type: 'generatingMessage' });
+          const cts = new vscode.CancellationTokenSource();
+          const timer = setTimeout(() => cts.cancel(), timeoutMs);
           try {
-            const generated = await this.git.generateCommitMessage();
+            const generated = await this.git.generateCommitMessage(cts.token);
             void this._view?.webview.postMessage({ type: 'generatedMessage', message: generated });
           } catch (err) {
+            const msg = cts.token.isCancellationRequested
+              ? `AI generation timed out after ${timeoutMs / 1000}s.`
+              : String(err);
             void this._view?.webview.postMessage({ type: 'generatedMessage', message: '' });
-            void vscode.window.showErrorMessage(String(err));
+            void vscode.window.showErrorMessage(msg);
+          } finally {
+            clearTimeout(timer);
+            cts.dispose();
           }
           break;
+        }
 
         case 'openDiff': {
           const filePath = msg.path as string;
@@ -391,7 +401,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
   </div>
   <div class="row" style="margin-top:6px">
     <button class="btn btn-sec" id="btnGen" title="Generate commit message with AI">
-      <span id="genIcon">✨</span> Generate
+      <span id="genIcon">✨</span> <span id="genLabel">Generate</span>
     </button>
     <button class="btn btn-sec" id="btnTpl" title="Insert commit message template">📝 Template</button>
     <div class="btn-grp" style="margin-left:auto">
@@ -775,12 +785,16 @@ window.addEventListener('message', e => {
     case 'generatingMessage':
       document.getElementById('genIcon').textContent = '⟳';
       document.getElementById('genIcon').className = 'spin';
+      document.getElementById('genLabel').textContent = 'Generating…';
       document.getElementById('btnGen').disabled = true;
+      document.getElementById('msg').disabled = true;
       break;
     case 'generatedMessage':
       document.getElementById('genIcon').textContent = '✨';
       document.getElementById('genIcon').className = '';
+      document.getElementById('genLabel').textContent = 'Generate';
       document.getElementById('btnGen').disabled = false;
+      document.getElementById('msg').disabled = false;
       if (m.message) document.getElementById('msg').value = m.message;
       break;
   }
