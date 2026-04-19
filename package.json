@@ -19,9 +19,9 @@
   },
   "activationEvents": [
     "onStartupFinished",
-    "onView:intelliGit.branches",
     "onView:intelliGit.changes",
     "onView:intelliGit.stashes",
+    "onView:intelliGit.branches",
     "onView:intelliGit.graph",
     "onView:intelliGit.commitView",
     "onCommand:intelliGit.quickActions"
@@ -45,8 +45,8 @@
     "views": {
       "intelliGit": [
         {
-          "id": "intelliGit.branches",
-          "name": "Branches",
+          "id": "intelliGit.changes",
+          "name": "Changes",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
         },
@@ -57,8 +57,8 @@
           "icon": "media/intelligit.svg"
         },
         {
-          "id": "intelliGit.changes",
-          "name": "Changes",
+          "id": "intelliGit.branches",
+          "name": "Branches",
           "visibility": "visible",
           "icon": "media/intelligit.svg"
         },
