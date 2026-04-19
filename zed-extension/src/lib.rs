@@ -7,7 +7,7 @@ mod git_service;
 mod state;
 mod panels;
 
-use zed_extension_api::{self as zed, Event, WorktreeId};
+use zed_extension_api::{self as zed, WorktreeId};
 
 use std::sync::Arc;
 
@@ -27,39 +27,14 @@ impl zed::Extension for IntelliGitExtension {
         }
     }
 
-    fn event(&mut self, worktree: &zed::Worktree, event: Event) {
-        match event {
-            Event::WorktreeUpdated { .. } => {
-                // Initialize or refresh git service when worktree changes
-                if let Some(root_path) = worktree.root_dir() {
-                    let config = GitConfig::default();
-                    let context = RepositoryContext {
-                        root_path: root_path.path().into(),
-                    };
-                    
-                    let git_service = Arc::new(GitService::new(context, config));
-                    let state_store = StateStore::new(Arc::clone(&git_service));
-                    
-                    self.git_service = Some(git_service);
-                    self.state_store = Some(state_store);
-                }
-            }
-            _ => {}
+    fn workspace_updated(&mut self, worktree_id: WorktreeId) {
+        // Initialize or refresh git service when workspace changes
+        // In a real implementation, you would get the worktree path from Zed's API
+        // For now, we initialize on first workspace update
+        if self.git_service.is_none() {
+            // Placeholder: In actual Zed extension, get root path from worktree_id
+            // This is a simplified initialization
         }
-    }
-
-    fn serialize_state(&self, _worktree_id: WorktreeId) -> Option<Vec<u8>> {
-        // Serialize recent compare pairs and other state if needed
-        None
-    }
-
-    fn deserialize_state(
-        &mut self,
-        _worktree_id: WorktreeId,
-        _serialized: Vec<u8>,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Deserialize state on restore
-        Ok(())
     }
 }
 

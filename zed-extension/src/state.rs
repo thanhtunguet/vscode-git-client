@@ -213,14 +213,19 @@ impl StateStore {
     pub async fn refresh_graph(&self, filters: Option<GraphFilters>) -> GitResult<()> {
         let max_graph_commits = 200;
         
-        let mut inner = self.inner.write().await;
-        if let Some(f) = filters {
-            inner.graph_filters = f;
+        {
+            let mut inner = self.inner.write().await;
+            if let Some(f) = filters {
+                inner.graph_filters = f;
+            }
         }
-        let filters_ref = &inner.graph_filters;
-        drop(inner);
+        
+        let filters_ref = {
+            let inner = self.inner.read().await;
+            inner.graph_filters.clone()
+        };
 
-        let graph = self.git_service.get_graph(max_graph_commits, Some(filters_ref)).await?;
+        let graph = self.git_service.get_graph(max_graph_commits, Some(&filters_ref)).await?;
         
         self.inner.write().await.graph = graph;
         Ok(())

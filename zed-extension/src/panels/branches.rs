@@ -321,11 +321,13 @@ pub fn describe_branch(branch: &BranchRef) -> String {
     }
 
     if let Some(ref upstream) = branch.upstream {
-        parts.push(&format!("upstream: {}", upstream));
+        let upstream_str = format!("upstream: {}", upstream);
+        parts.push(&upstream_str);
     }
 
     if branch.ahead > 0 || branch.behind > 0 {
-        parts.push(&format!("▲{} ▼{}", branch.ahead, branch.behind));
+        let ahead_behind_str = format!("▲{} ▼{}", branch.ahead, branch.behind);
+        parts.push(&ahead_behind_str);
     }
 
     parts.join(" · ")

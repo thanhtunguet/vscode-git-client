@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::process::Command;
+use tokio::sync::RwLock;
 
 use crate::types::*;
 
@@ -64,7 +65,7 @@ impl Default for GitConfig {
 pub struct GitService {
     context: RepositoryContext,
     config: GitConfig,
-    git_dir_cache: Option<PathBuf>,
+    git_dir_cache: RwLock<Option<PathBuf>>,
 }
 
 impl GitService {
@@ -73,7 +74,7 @@ impl GitService {
         Self {
             context,
             config,
-            git_dir_cache: None,
+            git_dir_cache: RwLock::new(None),
         }
     }
 
@@ -113,9 +114,11 @@ impl GitService {
             "%(committerdate:unix)",
         ].join(FIELD_SEPARATOR);
 
+        let format_arg = format!("--format={}{}", format, RECORD_SEPARATOR);
+
         let result = self.run_git(&[
             "for-each-ref",
-            &format!("--format={}{}", format, RECORD_SEPARATOR),
+            &format_arg,
             "refs/heads",
             "refs/remotes",
         ]).await?;
@@ -145,7 +148,8 @@ impl GitService {
                 };
 
                 let short_name = if branch_type == BranchType::Remote {
-                    name.strip_prefix(&format!("{}/", name.split('/').next()?))?
+                    let prefix = format!("{}/", name.split('/').next()?);
+                    name.strip_prefix(&prefix)?
                         .to_string()
                 } else {
                     name.clone()
@@ -247,7 +251,8 @@ impl GitService {
 
     /// Check if a branch has an upstream
     pub async fn has_upstream(&self, local_branch: &str) -> bool {
-        self.run_git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", &format!("{}@{{upstream}}", local_branch)])
+        let upstream_arg = format!("{}@{{upstream}}", local_branch);
+        self.run_git(&["rev-parse", "--abbrev-ref", "--symbolic-full-name", &upstream_arg])
             .await
             .is_ok()
     }
@@ -524,7 +529,6 @@ impl GitService {
                     .and_then(|s| s.strip_suffix("}"))
                     .and_then(|s| s.parse::<u32>().ok())
                     .unwrap_or(entries.len() as u32);
-
                 let r#ref = format!("stash@{{{}}}", index);
                 let message = subject
                     .strip_prefix("On ")
@@ -550,7 +554,8 @@ impl GitService {
 
         // Populate file counts
         for entry in &mut entries {
-            entry.file_count = self.get_stash_file_count(&entry.r#ref).await.unwrap_or(0);
+            let file_count = self.get_stash_file_count(&entry.r#ref).await.unwrap_or(0);
+            entry.file_count = file_count;
         }
 
         entries.sort_by_key(|e| e.index);
@@ -611,12 +616,15 @@ impl GitService {
             "%s",
         ].join(FIELD_SEPARATOR);
 
+        let max_count_arg = format!("--max-count={}", max_count);
+        let format_arg = format!("--format={}{}", format, RECORD_SEPARATOR);
+
         let mut args = vec![
             "log",
             "--date=iso-strict",
             "--decorate=full",
-            &format!("--max-count={}", max_count),
-            &format!("--format={}{}", format, RECORD_SEPARATOR),
+            &max_count_arg,
+            &format_arg,
         ];
 
         if let Some(f) = filters {
@@ -624,16 +632,20 @@ impl GitService {
                 args.push(branch);
             }
             if let Some(ref author) = f.author {
-                args.push(&format!("--author={}", author));
+                let author_arg = format!("--author={}", author);
+                args.push(&author_arg);
             }
             if let Some(ref message) = f.message {
-                args.push(&format!("--grep={}", message));
+                let message_arg = format!("--grep={}", message);
+                args.push(&message_arg);
             }
             if let Some(ref since) = f.since {
-                args.push(&format!("--since={}", since));
+                let since_arg = format!("--since={}", since);
+                args.push(&since_arg);
             }
             if let Some(ref until) = f.until {
-                args.push(&format!("--until={}", until));
+                let until_arg = format!("--until={}", until);
+                args.push(&until_arg);
             }
         }
 
@@ -1078,8 +1090,7 @@ impl GitService {
         
         let mut cmd = Command::new(&self.config.git_path);
         cmd.args(args)
-            .current_dir(&self.context.root_path)
-            .kill_on_timeout(timeout);
+            .current_dir(&self.context.root_path);
 
         let output = tokio::time::timeout(timeout, cmd.output())
             .await
@@ -1098,8 +1109,11 @@ impl GitService {
 
     /// Get the git directory path
     async fn get_git_dir(&self) -> GitResult<Option<PathBuf>> {
-        if let Some(cached) = &self.git_dir_cache {
-            return Ok(Some(cached.clone()));
+        {
+            let cache = self.git_dir_cache.read().await;
+            if let Some(cached) = &*cache {
+                return Ok(Some(cached.clone()));
+            }
         }
 
         match self.run_git(&["rev-parse", "--git-dir"]).await {
@@ -1115,7 +1129,8 @@ impl GitService {
                     self.context.root_path.join(raw)
                 };
 
-                self.git_dir_cache = Some(resolved.clone());
+                let mut cache = self.git_dir_cache.write().await;
+                *cache = Some(resolved.clone());
                 Ok(Some(resolved))
             }
             Err(_) => Ok(None),
