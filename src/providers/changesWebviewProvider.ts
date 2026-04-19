@@ -22,6 +22,8 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken
   ): void {
+    // Dispose any subscriptions from a previous resolve cycle before re-registering.
+    for (const d of this._disposables.splice(0)) { d.dispose(); }
     this._view = webviewView;
 
     webviewView.webview.options = {

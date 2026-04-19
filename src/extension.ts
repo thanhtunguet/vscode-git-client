@@ -101,7 +101,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     commitView,
     commitDecorationProvider,
     vscode.window.registerFileDecorationProvider(commitDecorationProvider),
-    vscode.window.registerWebviewViewProvider('intelliGit.changes', changesWebviewProvider)
+    vscode.window.registerWebviewViewProvider('intelliGit.changes', changesWebviewProvider, {
+      webviewOptions: { retainContextWhenHidden: true }
+    })
   );
   const commandController = new CommandController(
     gitService,
