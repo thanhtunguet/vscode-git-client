@@ -119,6 +119,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     branchProvider
   );
   commandController.register(context);
+  context.subscriptions.push(
+    vscode.commands.registerCommand('intelliGit.changes.toggleViewMode', () => {
+      changesProvider.toggleViewMode();
+    })
+  );
   stateStore.attachAutoRefresh(context);
 
   context.subscriptions.push(

@@ -44,6 +44,8 @@ export class ChangesTreeProvider implements vscode.TreeDataProvider<ChangesNode>
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
 
+  private viewMode: 'tree' | 'list' = 'tree';
+
   constructor(
     private readonly state: StateStore,
     private readonly workspaceRoot: string
@@ -55,12 +57,20 @@ export class ChangesTreeProvider implements vscode.TreeDataProvider<ChangesNode>
     this.emitter.fire();
   }
 
+  toggleViewMode(): void {
+    this.viewMode = this.viewMode === 'tree' ? 'list' : 'tree';
+    this.emitter.fire();
+  }
+
   getTreeItem(element: ChangesNode): vscode.TreeItem {
     return element;
   }
 
   async getChildren(element?: ChangesNode): Promise<ChangesNode[]> {
     if (!element) {
+      if (this.viewMode === 'list') {
+        return this.state.changes.map((c) => new ChangeFileTreeItem(c.path, c.status, this.workspaceRoot));
+      }
       return buildChangesTree(this.state.changes, '', this.workspaceRoot);
     }
 

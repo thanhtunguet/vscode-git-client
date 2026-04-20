@@ -310,6 +310,11 @@
         "title": "Open File Blame"
       },
       {
+        "command": "intelliGit.changes.toggleViewMode",
+        "title": "Toggle Tree/List View",
+        "icon": "$(list-tree)"
+      },
+      {
         "command": "intelliGit.changes.openFileDiff",
         "title": "Open Change Diff"
       },
@@ -350,19 +355,24 @@
           "group": "navigation@1"
         },
         {
+          "command": "intelliGit.changes.toggleViewMode",
+          "when": "view == intelliGit.changes",
+          "group": "navigation@2"
+        },
+        {
           "command": "intelliGit.operation.continue",
           "when": "view == intelliGit.changes && intelliGit.operation != none",
-          "group": "navigation@2"
+          "group": "navigation@3"
         },
         {
           "command": "intelliGit.operation.skip",
           "when": "view == intelliGit.changes && (intelliGit.operation == rebase || intelliGit.operation == cherry-pick)",
-          "group": "navigation@3"
+          "group": "navigation@4"
         },
         {
           "command": "intelliGit.operation.abort",
           "when": "view == intelliGit.changes && intelliGit.operation != none",
-          "group": "navigation@4"
+          "group": "navigation@5"
         }
       ],
       "view/item/context": [
