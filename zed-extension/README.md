@@ -1,141 +1,70 @@
 # IntelliGit Client for Zed
 
-A port of the VSCode IntelliGit extension to Zed IDE, providing JetBrains-like Git client features.
+IntelliGit for Zed is implemented as a **command-first extension** through `/intelligit` slash commands.
+It targets parity with the VSCode IntelliGit command surface, with explicit fallbacks for UI affordances that Zed extensions cannot yet reproduce natively.
 
-## Features
+## Current Capability Model
 
-### Changes Panel
-- Working tree and index status grouped by state (modified, staged, untracked, conflicted)
-- File diff from change entry
-- Conflict resolution shortcuts:
-  - Accept Ours
-  - Accept Theirs
-  - Accept Both (open merge editor)
-- In-progress operation banner (merge / rebase / cherry-pick) with Continue, Skip, Abort actions
-- Stash selected changes
+- Native extension bootstrap: implemented (`extension.toml`, real `run_slash_command` lifecycle)
+- Command layer parity spine: implemented (`src/commands.rs`)
+- Panel parity: command-first fallback implemented (`src/panels/*.rs` data projections + slash commands)
+- Editor/diff/compare workflows: command-first fallback implemented (`src/editor.rs`)
+- Git backend: implemented via `GitService` (`src/git_service.rs`)
+- State/cache/filters: implemented via `StateStore` (`src/state.rs`)
 
-### Branches Panel
-- Hierarchical branch tree grouped by prefix (`feature/*`, `release/*`, etc.)
-- Local + remote branches
-- Current branch marker + upstream/ahead/behind info
-- Branch actions:
-  - Checkout
-  - Create
-  - Rename
-  - Delete
-  - Track / untrack upstream
-  - Merge into current
-  - Rebase current onto selected branch
-  - Reset current branch to selected commit (`soft|mixed|hard`) with confirmation
-  - Compare with current branch
-- Branch search/filter command
+## Slash Command Usage
 
-### Stashes Panel
-- Stash list with message, author, timestamp, file count
-- Stash actions:
-  - Create stash (include untracked, keep index)
-  - Apply
-  - Pop
-  - Drop (guarded)
-  - Rename message
-  - Patch preview (diff document)
-  - Unshelve (apply stash to working tree without removing)
-  - Stash selected changes from Changes view
+Use one command namespace:
 
-### Git Graph Panel
-- Commit list with graph-like glyph, refs, metadata, author/date
-- Commit details view:
-  - Full message
-  - Parent SHAs
-  - Changed files
-  - Stats (files/insertions/deletions)
-- Commit actions:
-  - Checkout commit (detached, guarded)
-  - Create branch at commit
-  - Create tag at commit
-  - Cherry-pick commit
-  - Revert commit
-  - Cherry-pick range
-  - Compare commit with current branch
-  - Interactive rebase from selected commit
-  - Go to parent commit
-  - Create patch from commit
-  - Open file at revision
-  - Show repository at revision
-- Graph filters:
-  - branch/ref
-  - author
-  - message text
-  - since / until dates
+- `/intelligit <action> [args...]`
 
-### Main Editor Workflows
-- 3-way merge: integrates with Zed's merge editor
-- Side-by-side diff entry points:
-  - Working tree vs HEAD
-  - Index vs HEAD
-  - Commit vs parent
-  - Any two refs for a file
-- Branch comparison tab:
-  - Dedicated view for `A..B`, `B..A`, changed files
-  - Drill down into file-level diff
-  - Recent compare pairs persisted in workspace state
+Examples:
 
-### Cross-cutting Features
-- Quick Git Actions command palette entry
-- Push/pull previews (incoming/outgoing commit summaries)
-- Fetch --prune
-- Partial staging (`git add -p`)
-- Stage file / unstage file
-- Amend last commit
-- File history and blame from active editor file
-- Guardrails for destructive operations with modal confirmation
-- Output channel logging of executed Git commands
-- Deterministic state refresh after mutating operations
+- `/intelligit help`
+- `/intelligit refresh`
+- `/intelligit branch.list`
+- `/intelligit branch.checkout main`
+- `/intelligit stash.list`
+- `/intelligit graph.open_details HEAD`
+- `/intelligit compare.open main feature/my-branch`
+- `/intelligit operation.abort`
 
-## Architecture
+## Settings Contract
 
-The extension is structured similarly to the VSCode version:
-
-- `src/git_service.rs` - Native `git` CLI wrapper with typed methods
-- `src/state.rs` - Central cached state for branches/stashes/graph/compare
-- `src/panels/` - Panel providers for Changes, Branches, Stashes, and Git Graph
-- `src/commands.rs` - Command registration and action orchestration
-- `src/editor.rs` - Merge/diff/compare orchestration
-- `src/types.rs` - Shared type definitions
-
-## Building
-
-```bash
-cargo build --release
-```
-
-## Installation
-
-Copy the compiled extension to your Zed extensions directory:
-
-```bash
-mkdir -p ~/.config/zed/extensions/intelligit
-cp target/release/libintelligit.so ~/.config/zed/extensions/intelligit/
-```
-
-## Configuration
-
-Add to your Zed settings.json:
+Settings are read from `.zed/settings.json` under key `intelligit`.
 
 ```json
 {
   "intelligit": {
     "git_path": "git",
     "command_timeout_ms": 15000,
-    "max_graph_commits": 200
+    "max_graph_commits": 200,
+    "recent_branches_count": 3,
+    "commit_message_templates": [
+      { "label": "feat", "template": "feat({scope}): {cursor}" },
+      { "label": "fix", "template": "fix({scope}): {cursor}" }
+    ],
+    "commit_message_ticket_pattern": "[A-Z]+-\\d+",
+    "ai_generate_timeout_ms": 5000
   }
 }
 ```
 
-## Notes
+## Build
 
-- Single-repo per window (first workspace folder)
-- Native Git CLI required on system path
-- Uses built-in Zed merge/diff editors for reliability
-- Graph is tree-based rendering (with glyph hints)
-- PR/issue tracker integrations are intentionally not included in this core-parity scope
+```bash
+cd zed-extension
+cargo build
+cargo build --release
+cargo test
+```
+
+## Important Notes
+
+- This extension focuses on **capability parity** (outcomes), not visual parity with VSCode webviews.
+- Where Zed extension APIs do not expose an equivalent panel/webview primitive, IntelliGit returns explicit command-fallback guidance.
+- Destructive operations are still guarded by explicit command naming and output messaging; the caller should confirm before invoking them.
+
+## Parity Matrix
+
+See [`PARITY.md`](./PARITY.md) for command/view parity status against VSCode behavior.
