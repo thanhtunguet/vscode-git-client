@@ -160,6 +160,26 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case 'discardAll': {
+          const unstaged = this.state.unstagedChanges;
+          if (unstaged.length === 0) {
+            void vscode.window.showInformationMessage('No unstaged changes to discard.');
+            break;
+          }
+          const confirm = await vscode.window.showWarningMessage(
+            `Discard all unstaged changes in ${unstaged.length} file${unstaged.length === 1 ? '' : 's'}?`,
+            { modal: true },
+            'Discard All'
+          );
+          if (confirm === 'Discard All') {
+            for (const change of unstaged) {
+              await this.git.discardFile(change.path, change.status === '??');
+            }
+            await this.state.refreshChanges();
+          }
+          break;
+        }
+
         case 'commit':
         case 'commitAndPush': {
           if (this.state.operationState.kind !== 'none' && this.state.conflicts.length > 0) {
@@ -371,9 +391,15 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 .section-hdr:hover .hdr-actions{opacity:1}
 .section-body{}
 .section-body.hidden{display:none}
-.file-item{display:flex;align-items:center;padding:2px 8px 2px 20px;cursor:pointer;gap:4px;min-height:22px}
+.bulk-actions{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid var(--vscode-sideBarSectionHeader-border,var(--vscode-widget-border,#454545));flex-wrap:wrap}
+.mini-btn{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:none;border-radius:2px;padding:2px 8px;cursor:pointer;font-size:11px;font-family:var(--vscode-font-family);line-height:1.5}
+.mini-btn:hover{background:var(--vscode-button-secondaryHoverBackground)}
+.mini-btn:disabled{opacity:.5;cursor:default}
+.file-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px}
 .file-item:hover{background:var(--vscode-list-hoverBackground)}
 .file-item:hover .fa{opacity:1}
+.folder-item{display:flex;align-items:center;padding:2px 8px;cursor:pointer;gap:4px;min-height:22px}
+.folder-item:hover{background:var(--vscode-list-hoverBackground)}
 .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fdir{font-size:11px;color:var(--vscode-descriptionForeground);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40%;flex-shrink:0}
 .badge{font-size:10px;font-weight:700;width:14px;text-align:center;flex-shrink:0}
@@ -426,6 +452,12 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
       <button class="btn" id="btnMore" title="More options">▾</button>
     </div>
   </div>
+</div>
+
+<div class="bulk-actions">
+  <button class="mini-btn" id="btnStageAll" title="Stage all unstaged changes">Stage All</button>
+  <button class="mini-btn" id="btnUnstageAllBulk" title="Unstage all staged changes">Unstage All</button>
+  <button class="mini-btn" id="btnDiscardAll" title="Discard all unstaged changes">Discard All</button>
 </div>
 
 <div class="dropdown" id="dropdown" style="display:none">
@@ -528,9 +560,19 @@ document.getElementById('btnGen').addEventListener('click', () => {
 });
 
 /* ── stage/unstage all ── */
-document.getElementById('btnUnstageAll').addEventListener('click', e => {
-  e.stopPropagation();
+function postUnstageAll(e) {
+  if (e) e.stopPropagation();
   vscode.postMessage({ type: 'unstageAll' });
+}
+document.getElementById('btnUnstageAll').addEventListener('click', postUnstageAll);
+document.getElementById('btnUnstageAllBulk').addEventListener('click', postUnstageAll);
+document.getElementById('btnStageAll').addEventListener('click', e => {
+  e.stopPropagation();
+  vscode.postMessage({ type: 'stageAll' });
+});
+document.getElementById('btnDiscardAll').addEventListener('click', e => {
+  e.stopPropagation();
+  vscode.postMessage({ type: 'discardAll' });
 });
 
 /* ── template dropdown ── */
@@ -565,8 +607,18 @@ tplDropEl.addEventListener('click', e => {
 let _changelists = [{ id: 'default', name: 'Changes' }];
 let _assignments = {}; // path -> changelistId
 let _unstaged = [];
+let _staged = [];
+const folderOpen = {}; // key -> boolean
 
 document.getElementById('changelistsRoot').addEventListener('click', e => {
+  const folder = e.target.closest('[data-toggle-folder]');
+  if (folder) {
+    e.stopPropagation();
+    const key = folder.getAttribute('data-toggle-folder');
+    folderOpen[key] = !(folderOpen[key] !== false); // default true -> toggle
+    renderChangelists();
+    return;
+  }
   const hdrBtn = e.target.closest('[data-hdr-action]');
   if (hdrBtn) {
     e.stopPropagation();
@@ -607,6 +659,14 @@ document.getElementById('changelistsRoot').addEventListener('click', e => {
     }
     return;
   }
+});
+document.getElementById('sbStaged').addEventListener('click', e => {
+  const folder = e.target.closest('[data-toggle-folder]');
+  if (!folder) return;
+  e.stopPropagation();
+  const key = folder.getAttribute('data-toggle-folder');
+  folderOpen[key] = !(folderOpen[key] !== false); // default true -> toggle
+  document.getElementById('sbStaged').innerHTML = renderFiles(_staged, 'staged', 'staged');
 });
 
 const clAssignMenu = document.getElementById('clAssignMenu');
@@ -669,43 +729,108 @@ function fileParts(p) {
   return i === -1 ? { name: p, dir: '' } : { name: p.slice(i+1), dir: p.slice(0, i) };
 }
 
-function filePartsByMode(p) {
-  if (_viewMode === 'list') {
-    return fileParts(p);
-  }
-  const i = p.lastIndexOf('/');
-  return i === -1 ? { name: p, dir: '' } : { name: p.slice(i + 1), dir: '' };
+function joinPath(base, segment) {
+  return base ? (base + '/' + segment) : segment;
 }
-let _conflicts = new Set();
-function renderFiles(changes, section) {
-  if (!changes.length) return '<div class="empty">' + (section==='staged'?'No staged changes':'No changes') + '</div>';
-  return changes.map(c => {
-    const { name, dir } = filePartsByMode(c.path);
-    const isConflict = _conflicts.has(c.path);
-    const { label, cls } = isConflict ? { label: '!', cls: 'C' } : statusInfo(c.status, section);
-    const ep = esc(c.path), es = esc(c.status);
-    let actions;
-    if (isConflict) {
-      actions = \`<div class="fa">
-        <button class="icon-btn" onclick="act('openMergeEditor','\${ep}','\${es}','\${section}',event)" title="Open 3-way Merge Editor">⇔</button>
-        <button class="icon-btn" onclick="act('acceptOurs','\${ep}','\${es}','\${section}',event)" title="Accept Yours">Y</button>
-        <button class="icon-btn" onclick="act('acceptTheirs','\${ep}','\${es}','\${section}',event)" title="Accept Theirs">T</button>
-        <button class="icon-btn" onclick="act('acceptBoth','\${ep}','\${es}','\${section}',event)" title="Accept Both (open merge editor)">B</button>
-      </div>\`;
-    } else if (section === 'staged') {
-      actions = \`<div class="fa"><button class="icon-btn" onclick="act('unstageFile','\${ep}','\${es}','staged',event)" title="Unstage">↩</button></div>\`;
-    } else {
-      actions = \`<div class="fa"><button class="icon-btn" data-assign-path="\${ep}" title="Move to Changelist">⇢</button><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
+
+function buildFolderTree(changes) {
+  const root = { path: '', folders: new Map(), files: [] };
+  for (const c of changes) {
+    const parts = c.path.split('/');
+    let cursor = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const seg = parts[i];
+      let child = cursor.folders.get(seg);
+      if (!child) {
+        child = { path: joinPath(cursor.path, seg), folders: new Map(), files: [] };
+        cursor.folders.set(seg, child);
+      }
+      cursor = child;
     }
-    const clickAction = isConflict ? 'openMergeEditor' : 'openDiff';
-    const rowCls = isConflict ? 'file-item cf-item' : 'file-item';
-    return \`<div class="\${rowCls}" onclick="act('\${clickAction}','\${ep}','\${es}','\${section}',event)">
-      <span class="badge \${cls}">\${label}</span>
-      <span class="fname" title="\${ep}">\${esc(name)}</span>
-      \${dir ? \`<span class="fdir">\${esc(dir)}</span>\` : ''}
-      \${actions}
+    cursor.files.push(c);
+  }
+  return root;
+}
+
+function countTreeFiles(node) {
+  let count = node.files.length;
+  for (const child of node.folders.values()) count += countTreeFiles(child);
+  return count;
+}
+
+let _conflicts = new Set();
+function renderFileRow(c, section, depth) {
+  const { name, dir } = _viewMode === 'list' ? fileParts(c.path) : { name: c.path.split('/').at(-1) || c.path, dir: '' };
+  const isConflict = _conflicts.has(c.path);
+  const { label, cls } = isConflict ? { label: '!', cls: 'C' } : statusInfo(c.status, section);
+  const ep = esc(c.path), es = esc(c.status);
+  const padLeft = 8 + depth * 14;
+  let actions;
+  if (isConflict) {
+    actions = \`<div class="fa">
+      <button class="icon-btn" onclick="act('openMergeEditor','\${ep}','\${es}','\${section}',event)" title="Open 3-way Merge Editor">⇔</button>
+      <button class="icon-btn" onclick="act('acceptOurs','\${ep}','\${es}','\${section}',event)" title="Accept Yours">Y</button>
+      <button class="icon-btn" onclick="act('acceptTheirs','\${ep}','\${es}','\${section}',event)" title="Accept Theirs">T</button>
+      <button class="icon-btn" onclick="act('acceptBoth','\${ep}','\${es}','\${section}',event)" title="Accept Both (open merge editor)">B</button>
     </div>\`;
-  }).join('');
+  } else if (section === 'staged') {
+    actions = \`<div class="fa"><button class="icon-btn" onclick="act('unstageFile','\${ep}','\${es}','staged',event)" title="Unstage">↩</button></div>\`;
+  } else {
+    actions = \`<div class="fa"><button class="icon-btn" data-assign-path="\${ep}" title="Move to Changelist">⇢</button><button class="icon-btn" onclick="act('stageFile','\${ep}','\${es}','unstaged',event)" title="Stage">+</button><button class="icon-btn" onclick="act('discardFile','\${ep}','\${es}','unstaged',event)" title="Discard Changes">↺</button></div>\`;
+  }
+  const clickAction = isConflict ? 'openMergeEditor' : 'openDiff';
+  const rowCls = isConflict ? 'file-item cf-item' : 'file-item';
+  return \`<div class="\${rowCls}" style="padding-left:\${padLeft}px" onclick="act('\${clickAction}','\${ep}','\${es}','\${section}',event)">
+    <span class="badge \${cls}">\${label}</span>
+    <span class="fname" title="\${ep}">\${esc(name)}</span>
+    \${dir ? \`<span class="fdir">\${esc(dir)}</span>\` : ''}
+    \${actions}
+  </div>\`;
+}
+
+function renderTreeNode(node, section, listKey, depth) {
+  const parts = [];
+  const folderNames = Array.from(node.folders.keys()).sort((a, b) => a.localeCompare(b));
+  for (const name of folderNames) {
+    const child = node.folders.get(name);
+    const toggleKey = section + ':' + listKey + ':' + child.path;
+    const open = folderOpen[toggleKey] !== false;
+    const padLeft = 8 + depth * 14;
+    const count = countTreeFiles(child);
+    parts.push(
+      '<div class="folder-item" style="padding-left:' + padLeft + 'px" data-toggle-folder="' + esc(toggleKey) + '">' +
+        '<span class="chevron' + (open ? '' : ' closed') + '">▶</span>' +
+        '<span class="fname">' + esc(name) + '</span>' +
+        '<span class="count">(' + count + ')</span>' +
+      '</div>'
+    );
+    if (open) {
+      parts.push(renderTreeNode(child, section, listKey, depth + 1));
+    }
+  }
+  const files = [...node.files].sort((a, b) => a.path.localeCompare(b.path));
+  for (const c of files) {
+    parts.push(renderFileRow(c, section, depth));
+  }
+  return parts.join('');
+}
+
+function renderFiles(changes, section, listKey = 'default') {
+  if (!changes.length) return '<div class="empty">' + (section==='staged'?'No staged changes':'No changes') + '</div>';
+  if (_viewMode === 'list') {
+    return [...changes].sort((a, b) => a.path.localeCompare(b.path)).map(c => renderFileRow(c, section, 1)).join('');
+  }
+  const tree = buildFolderTree(changes);
+  return renderTreeNode(tree, section, listKey, 1);
+}
+
+function setBulkButtons(stagedCount, unstagedCount) {
+  const stageAllBtn = document.getElementById('btnStageAll');
+  const unstageAllBtn = document.getElementById('btnUnstageAllBulk');
+  const discardAllBtn = document.getElementById('btnDiscardAll');
+  stageAllBtn.disabled = unstagedCount === 0;
+  unstageAllBtn.disabled = stagedCount === 0;
+  discardAllBtn.disabled = unstagedCount === 0;
 }
 
 function act(type, path, status, section, e) {
@@ -772,7 +897,7 @@ function renderChangelists() {
         '<div class="hdr-actions">' + actions.join('') + '</div>' +
       '</div>' +
       '<div class="section-body' + (open ? '' : ' hidden') + '">' +
-        renderFiles(files, 'unstaged') +
+        renderFiles(files, 'unstaged', cl.id) +
       '</div>'
     );
   }
@@ -791,9 +916,11 @@ window.addEventListener('message', e => {
       _changelists = Array.isArray(m.changelists) && m.changelists.length > 0 ? m.changelists : [{ id: 'default', name: 'Changes' }];
       _assignments = m.assignments || {};
       _unstaged = m.unstaged || [];
+      _staged = m.staged || [];
+      setBulkButtons(_staged.length, _unstaged.length);
       renderOperation(m.operation, _conflicts.size);
       document.getElementById('cntStaged').textContent = '(' + m.staged.length + ')';
-      document.getElementById('sbStaged').innerHTML = renderFiles(m.staged, 'staged');
+      document.getElementById('sbStaged').innerHTML = renderFiles(_staged, 'staged', 'staged');
       renderChangelists();
       break;
     case 'clearMessage':
