@@ -22,6 +22,8 @@ const FIELD_SEPARATOR = '|~|';
 const RECORD_SEPARATOR = '|#|';
 
 export class GitService {
+  private _gitPrefixCache: string | undefined;
+
   constructor(
     private readonly context: RepositoryContext,
     private readonly logger: Logger,
@@ -30,6 +32,19 @@ export class GitService {
 
   get rootPath(): string {
     return this.context.rootPath;
+  }
+
+  async getGitPrefix(): Promise<string> {
+    if (this._gitPrefixCache !== undefined) {
+      return this._gitPrefixCache;
+    }
+    try {
+      const result = await this.runGit(['rev-parse', '--show-prefix']);
+      this._gitPrefixCache = result.stdout.trim();
+    } catch {
+      this._gitPrefixCache = '';
+    }
+    return this._gitPrefixCache;
   }
 
   async isRepo(): Promise<boolean> {
@@ -684,12 +699,15 @@ export class GitService {
       return Buffer.from(bytes).toString('utf8');
     }
 
+    const prefix = await this.getGitPrefix();
+    const repoRelativePath = prefix ? `${prefix}${relativePath}` : relativePath;
+
     if (refSpec === 'INDEX') {
-      const result = await this.runGit(['show', `:${relativePath}`]);
+      const result = await this.runGit(['show', `:${repoRelativePath}`]);
       return result.stdout;
     }
 
-    const result = await this.runGit(['show', `${refSpec}:${relativePath}`]);
+    const result = await this.runGit(['show', `${refSpec}:${repoRelativePath}`]);
     return result.stdout;
   }
 
