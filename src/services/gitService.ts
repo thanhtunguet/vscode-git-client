@@ -22,7 +22,7 @@ const FIELD_SEPARATOR = '|~|';
 const RECORD_SEPARATOR = '|#|';
 
 export class GitService {
-  private _gitPrefixCache: string | undefined;
+  private _gitRootCache: string | undefined;
 
   constructor(
     private readonly context: RepositoryContext,
@@ -34,17 +34,17 @@ export class GitService {
     return this.context.rootPath;
   }
 
-  async getGitPrefix(): Promise<string> {
-    if (this._gitPrefixCache !== undefined) {
-      return this._gitPrefixCache;
+  async getGitRoot(): Promise<string> {
+    if (this._gitRootCache !== undefined) {
+      return this._gitRootCache;
     }
     try {
-      const result = await this.runGit(['rev-parse', '--show-prefix']);
-      this._gitPrefixCache = result.stdout.trim();
+      const result = await this.runGit(['rev-parse', '--show-toplevel']);
+      this._gitRootCache = result.stdout.trim();
     } catch {
-      this._gitPrefixCache = '';
+      this._gitRootCache = this.context.rootPath;
     }
-    return this._gitPrefixCache;
+    return this._gitRootCache;
   }
 
   async isRepo(): Promise<boolean> {
@@ -694,20 +694,17 @@ export class GitService {
 
   async getFileContentFromRef(refSpec: string, relativePath: string): Promise<string> {
     if (refSpec === 'WORKTREE') {
-      const absolutePath = vscode.Uri.joinPath(this.context.rootUri, relativePath).fsPath;
-      const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(absolutePath));
+      const gitRoot = await this.getGitRoot();
+      const bytes = await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(gitRoot, relativePath)));
       return Buffer.from(bytes).toString('utf8');
     }
 
-    const prefix = await this.getGitPrefix();
-    const repoRelativePath = prefix ? `${prefix}${relativePath}` : relativePath;
-
     if (refSpec === 'INDEX') {
-      const result = await this.runGit(['show', `:${repoRelativePath}`]);
+      const result = await this.runGit(['show', `:${relativePath}`]);
       return result.stdout;
     }
 
-    const result = await this.runGit(['show', `${refSpec}:${repoRelativePath}`]);
+    const result = await this.runGit(['show', `${refSpec}:${relativePath}`]);
     return result.stdout;
   }
 

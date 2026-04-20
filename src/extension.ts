@@ -56,8 +56,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const gitService = new GitService(repositoryContext, logger, configuration);
   const stateStore = new StateStore(gitService, logger, configuration, context.workspaceState);
 
+  const gitRoot = await gitService.getGitRoot();
   const branchProvider = new BranchTreeProvider(stateStore);
-  const changesProvider = new ChangesTreeProvider(stateStore, gitService.rootPath);
+  const changesProvider = new ChangesTreeProvider(stateStore, gitRoot);
   const stashProvider = new StashTreeProvider(stateStore);
   const graphProvider = new GraphTreeProvider(stateStore, gitService);
 
