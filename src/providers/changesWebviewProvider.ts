@@ -8,6 +8,7 @@ import { StateStore } from '../state/stateStore';
 export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
   private _view?: vscode.WebviewView;
   private readonly _disposables: vscode.Disposable[] = [];
+  private viewMode: 'tree' | 'list' = 'tree';
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -71,6 +72,11 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
     for (const d of this._disposables) { d.dispose(); }
   }
 
+  toggleViewMode(): void {
+    this.viewMode = this.viewMode === 'tree' ? 'list' : 'tree';
+    void this._sendUpdate();
+  }
+
   private async _sendUpdate(): Promise<void> {
     if (!this._view) { return; }
     let headMessage = '';
@@ -83,10 +89,20 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
       ? { tooltip: `${count} change${count === 1 ? '' : 's'}`, value: count }
       : undefined;
 
-    const unstaged = this.state.unstagedChanges;
-    await this.changelists.pruneMissing(unstaged.map((c) => c.path));
+    const unstagedRaw = this.state.unstagedChanges;
+    const stagedRaw = this.state.stagedChanges;
+
+    const buildTree = (changes: typeof unstagedRaw): typeof unstagedRaw => {
+      return [...changes].sort((a, b) => a.path.localeCompare(b.path));
+    };
+
+    const view = this.viewMode;
+    const staged = view === 'list' ? [...stagedRaw] : buildTree(stagedRaw);
+    const unstaged = view === 'list' ? [...unstagedRaw] : buildTree(unstagedRaw);
+
+    await this.changelists.pruneMissing(unstagedRaw.map((c) => c.path));
     const assignments: Record<string, string> = {};
-    for (const c of unstaged) {
+    for (const c of unstagedRaw) {
       const id = this.changelists.getChangelistIdFor(c.path);
       if (id !== this.changelists.defaultId) {
         assignments[c.path] = id;
@@ -95,7 +111,8 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
 
     void this._view.webview.postMessage({
       type: 'update',
-      staged: this.state.stagedChanges,
+      viewMode: view,
+      staged,
       unstaged,
       headMessage,
       branch,
@@ -438,6 +455,7 @@ textarea::placeholder{color:var(--vscode-input-placeholderForeground)}
 <script>
 const vscode = acquireVsCodeApi();
 let _headMsg = '';
+let _viewMode = 'tree';
 
 /* ── section toggles ── */
 let stagedOpen = true;
@@ -650,11 +668,19 @@ function fileParts(p) {
   const i = p.lastIndexOf('/');
   return i === -1 ? { name: p, dir: '' } : { name: p.slice(i+1), dir: p.slice(0, i) };
 }
+
+function filePartsByMode(p) {
+  if (_viewMode === 'list') {
+    return fileParts(p);
+  }
+  const i = p.lastIndexOf('/');
+  return i === -1 ? { name: p, dir: '' } : { name: p.slice(i + 1), dir: '' };
+}
 let _conflicts = new Set();
 function renderFiles(changes, section) {
   if (!changes.length) return '<div class="empty">' + (section==='staged'?'No staged changes':'No changes') + '</div>';
   return changes.map(c => {
-    const { name, dir } = fileParts(c.path);
+    const { name, dir } = filePartsByMode(c.path);
     const isConflict = _conflicts.has(c.path);
     const { label, cls } = isConflict ? { label: '!', cls: 'C' } : statusInfo(c.status, section);
     const ep = esc(c.path), es = esc(c.status);
@@ -759,6 +785,7 @@ window.addEventListener('message', e => {
   switch (m.type) {
     case 'update':
       _headMsg = m.headMessage || '';
+      _viewMode = m.viewMode === 'list' ? 'list' : 'tree';
       _conflicts = new Set(m.conflicts || []);
       _templates = Array.isArray(m.templates) ? m.templates : [];
       _changelists = Array.isArray(m.changelists) && m.changelists.length > 0 ? m.changelists : [{ id: 'default', name: 'Changes' }];
