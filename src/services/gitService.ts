@@ -875,9 +875,18 @@ export class GitService {
     const maxLen = 8000;
     const truncated = diff.length > maxLen ? diff.slice(0, maxLen) + '\n... (diff truncated)' : diff;
 
-    const [model] = await vscode.lm.selectChatModels({ family: 'gpt-4o' });
+    const preferredFamilies = ['gpt-5-mini', 'gpt-4.1', 'gpt-4o', 'gpt-4', 'claude-3.5-sonnet'];
+    let model: vscode.LanguageModelChat | undefined;
+    for (const family of preferredFamilies) {
+      const [m] = await vscode.lm.selectChatModels({ family });
+      if (m) { model = m; break; }
+    }
     if (!model) {
-      throw new Error('No AI model available. Install GitHub Copilot to enable this feature.');
+      const [any] = await vscode.lm.selectChatModels();
+      model = any;
+    }
+    if (!model) {
+      throw new Error('No AI model available. Install GitHub Copilot or another AI extension to enable this feature.');
     }
 
     const cts = new vscode.CancellationTokenSource();
