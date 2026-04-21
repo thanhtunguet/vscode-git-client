@@ -240,6 +240,29 @@ export class ChangesWebviewProvider implements vscode.WebviewViewProvider {
           break;
         }
 
+        case 'discardChangelist': {
+          const id = msg.id as string;
+          const unstaged = this.state.unstagedChanges.filter(
+            c => this.changelists.getChangelistIdFor(c.path) === id
+          );
+          if (unstaged.length === 0) {
+            void vscode.window.showInformationMessage('No changes to discard.');
+            break;
+          }
+          const confirm = await vscode.window.showWarningMessage(
+            `Discard all changes in ${unstaged.length} file${unstaged.length === 1 ? '' : 's'}?`,
+            { modal: true },
+            'Discard All'
+          );
+          if (confirm === 'Discard All') {
+            for (const change of unstaged) {
+              await this.git.discardFile(change.path, change.status === '??');
+            }
+            await this.state.refreshChanges();
+          }
+          break;
+        }
+
         case 'commit':
         case 'commitAndPush': {
           if (this.state.operationState.kind !== 'none' && this.state.conflicts.length > 0) {
@@ -721,6 +744,13 @@ document.getElementById('changelistsRoot').addEventListener('click', e => {
     }
     return;
   }
+  const discardClBtn = e.target.closest('[data-discard-cl]');
+  if (discardClBtn) {
+    e.stopPropagation();
+    const id = discardClBtn.getAttribute('data-discard-cl');
+    vscode.postMessage({ type: 'discardChangelist', id });
+    return;
+  }
   const hdr = e.target.closest('.section-hdr[data-cl-id]');
   if (hdr) {
     if (e.target.closest('.hdr-actions')) return;
@@ -1143,6 +1173,7 @@ function renderChangelists() {
       actions.push('<button class="icon-btn" data-hdr-action="delete" data-cl-id="' + esc(cl.id) + '" title="Delete">✕</button>');
     }
     actions.push('<button class="icon-btn" data-stage-cl="' + esc(cl.id) + '" title="Add All to Staged">＋</button>');
+    actions.push('<button class="icon-btn" data-discard-cl="' + esc(cl.id) + '" title="Discard All Changes">✕</button>');
     const label = isDefault ? 'CHANGES' : 'CHANGELIST · ' + esc(cl.name);
     parts.push(
       '<div class="section-hdr" data-cl-id="' + esc(cl.id) + '"' +
