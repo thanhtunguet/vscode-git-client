@@ -298,6 +298,10 @@
         "title": "Stage File"
       },
       {
+        "command": "intelliGit.scm.shelveResource",
+        "title": "Shelve Changes (IntelliGit)"
+      },
+      {
         "command": "intelliGit.unstage.file",
         "title": "Unstage File"
       },
@@ -359,6 +363,13 @@
           "command": "intelliGit.branch.actionHub",
           "when": "config.git.enabled && !git.missing && gitOpenRepositoryCount != 0",
           "group": "3_modify@0"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "intelliGit.scm.shelveResource",
+          "when": "scmProvider == git && resourceScheme == file && scmResourceGroup != index",
+          "group": "2_intelliGit@1"
         }
       ],
       "view/title": [

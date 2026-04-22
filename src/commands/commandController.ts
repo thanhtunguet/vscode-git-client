@@ -1027,6 +1027,36 @@ export class CommandController {
       await this.state.refreshAll();
     });
 
+    register('intelliGit.scm.shelveResource', async (arg?: unknown) => {
+      const filePath = toRepoFilePath(arg);
+      if (!filePath) {
+        void vscode.window.showWarningMessage('Select a Source Control file to shelve.');
+        return;
+      }
+
+      const defaultMessage = `Shelve ${filePath}`;
+      const rawMessage = await vscode.window.showInputBox({
+        title: 'Shelve selected change',
+        value: defaultMessage,
+        placeHolder: 'Shelve message'
+      });
+      if (rawMessage === undefined) {
+        return;
+      }
+
+      const message = rawMessage.trim() || defaultMessage;
+      const changes = await this.git.getChangedFiles();
+      const includeUntracked = changes.some((item) => item.path === filePath && item.status.trim() === '??');
+
+      await this.git.stashFiles([filePath], message, {
+        keepIndex: true,
+        includeUntracked
+      });
+
+      await this.state.refreshAll();
+      void vscode.window.showInformationMessage(`Shelved ${filePath}.`);
+    });
+
     register('intelliGit.unstage.file', async () => {
       const changed = await this.git.getChangedFiles();
       const candidates = changed.filter((entry) => entry.status.length > 1 && entry.status[0] !== ' ' && entry.status[0] !== '?');
