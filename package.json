@@ -382,6 +382,11 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.fileHistory.open",
+          "when": "view == intelliGit.changes && viewItem == changeFile",
+          "group": "navigation@0"
+        },
+        {
           "command": "intelliGit.changes.stashSelected",
           "when": "view == intelliGit.changes && viewItem == changeFile",
           "group": "navigation"
@@ -482,6 +487,11 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.fileHistory.open",
+          "when": "view == intelliGit.graph && viewItem == graphCommitFile",
+          "group": "navigation@4"
+        },
+        {
           "command": "intelliGit.graph.checkoutCommit",
           "when": "view == intelliGit.graph && viewItem == graphCommit",
           "group": "navigation"
@@ -512,6 +522,11 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.fileHistory.open",
+          "when": "view == intelliGit.commitView && viewItem == commitViewFile",
+          "group": "navigation"
+        },
+        {
           "command": "intelliGit.commit.revertSelectedChanges",
           "when": "view == intelliGit.commitView && viewItem == commitViewFile && intelliGit.commitViewCanRevertSelected",
           "group": "navigation@1"
@@ -527,6 +542,11 @@
           "group": "inline"
         },
         {
+          "command": "intelliGit.fileHistory.open",
+          "when": "view == intelliGit.commitView && viewItem == revisionViewFile",
+          "group": "navigation"
+        },
+        {
           "command": "intelliGit.commit.revertSelectedChanges",
           "when": "view == intelliGit.graph && viewItem == graphCommitFile",
           "group": "navigation@5"
@@ -535,6 +555,13 @@
           "command": "intelliGit.commit.cherryPickSelectedChanges",
           "when": "view == intelliGit.graph && viewItem == graphCommitFile",
           "group": "navigation@6"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "intelliGit.fileHistory.open",
+          "when": "explorerResourceIsFolder == false && resourceScheme == file",
+          "group": "navigation@9"
         }
       ]
     },

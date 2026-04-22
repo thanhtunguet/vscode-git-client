@@ -47,6 +47,45 @@ export class CommandController {
       value instanceof ChangeFileTreeItem ? value : undefined;
     const asRevisionViewFileItem = (value: unknown): RevisionFileTreeItem | undefined =>
       value instanceof RevisionFileTreeItem ? value : undefined;
+    const asFileResourceUri = (value: unknown): vscode.Uri | undefined => {
+      if (value instanceof vscode.Uri) {
+        return value.scheme === 'file' ? value : undefined;
+      }
+
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'resourceUri' in value &&
+        (value as { resourceUri?: unknown }).resourceUri instanceof vscode.Uri
+      ) {
+        const uri = (value as { resourceUri: vscode.Uri }).resourceUri;
+        return uri.scheme === 'file' ? uri : undefined;
+      }
+
+      return undefined;
+    };
+    const toRepoFilePath = (value: unknown): string | undefined => {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed || undefined;
+      }
+
+      const filePath =
+        asChangeFileItem(value)?.filePath ??
+        asGraphFileItem(value)?.filePath ??
+        asCommitViewFileItem(value)?.filePath ??
+        asRevisionViewFileItem(value)?.filePath;
+      if (filePath) {
+        return filePath;
+      }
+
+      const uri = asFileResourceUri(value);
+      if (!uri) {
+        return undefined;
+      }
+
+      return this.git.toRepoRelative(uri.fsPath);
+    };
     const toCommitSha = (value: unknown): string | undefined => {
       if (typeof value === 'string') {
         const trimmed = value.trim();
@@ -1023,10 +1062,10 @@ export class CommandController {
       }
       await this.state.refreshAll();
     });
-    register('intelliGit.fileHistory.open', async () => {
-      const file = this.getActiveFilePath();
+    register('intelliGit.fileHistory.open', async (arg?: unknown) => {
+      const file = toRepoFilePath(arg) ?? this.getActiveFilePath();
       if (!file) {
-        void vscode.window.showWarningMessage('Open a file to view history.');
+        void vscode.window.showWarningMessage('Select or open a file to view history.');
         return;
       }
 
