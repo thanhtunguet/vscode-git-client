@@ -16,6 +16,26 @@ import { getRepositoryContext } from './services/repositoryContext';
 import { ChangelistStore } from './state/changelistStore';
 import { StateStore } from './state/stateStore';
 
+type GitBaseApi = {
+  registerRemoteSourceProvider(provider: {
+    name: string;
+    getRemoteSources(query?: string): unknown[] | Promise<unknown[]>;
+    getRemoteSourceActions?(url: string): {
+      label: string;
+      icon: string;
+      run(branch: string): void;
+    }[] | Promise<{
+      label: string;
+      icon: string;
+      run(branch: string): void;
+    }[]>;
+  }): vscode.Disposable;
+};
+
+type GitBaseExtensionExports = {
+  getAPI(version: 1): GitBaseApi;
+};
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const logger = new Logger();
   context.subscriptions.push({ dispose: () => logger.dispose() });
@@ -120,6 +140,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     branchProvider
   );
   commandController.register(context);
+  await registerBranchActionHubInGitCheckout(context, logger);
   context.subscriptions.push(
     vscode.commands.registerCommand('intelliGit.changes.toggleViewMode', () => {
       changesWebviewProvider.toggleViewMode();
@@ -150,4 +171,42 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 export function deactivate(): void {
   // no-op
+}
+
+async function registerBranchActionHubInGitCheckout(
+  context: vscode.ExtensionContext,
+  logger: Logger
+): Promise<void> {
+  try {
+    const gitBaseExtension = vscode.extensions.getExtension<GitBaseExtensionExports>('vscode.git-base');
+    if (!gitBaseExtension) {
+      logger.warn('Git Base extension is not available. Branch action hub integration is disabled.');
+      return;
+    }
+
+    const gitBaseExports = await gitBaseExtension.activate();
+    const gitBaseApi = gitBaseExports?.getAPI(1);
+    if (!gitBaseApi) {
+      logger.warn('Git Base API is unavailable. Branch action hub integration is disabled.');
+      return;
+    }
+
+    const disposable = gitBaseApi.registerRemoteSourceProvider({
+      name: 'IntelliGit Branch Actions',
+      getRemoteSources: () => [],
+      getRemoteSourceActions: () => ([
+        {
+          label: 'IntelliGit Branch Action Hub',
+          icon: 'tools',
+          run(branch: string): void {
+            void vscode.commands.executeCommand('intelliGit.branch.actionHub', branch);
+          }
+        }
+      ])
+    });
+
+    context.subscriptions.push(disposable);
+  } catch (error) {
+    logger.warn(`Failed to register IntelliGit branch action hub: ${String(error)}`);
+  }
 }

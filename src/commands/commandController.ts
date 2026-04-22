@@ -117,6 +117,10 @@ export class CommandController {
       await this.openQuickActions();
     });
 
+    register('intelliGit.branch.actionHub', async (arg?: unknown) => {
+      await this.openBranchActionHub(arg);
+    });
+
     register('intelliGit.branch.search', async () => {
       const query = await vscode.window.showInputBox({
         title: 'Search branches',
@@ -1139,6 +1143,154 @@ export class CommandController {
     await action.run();
   }
 
+  private async openBranchActionHub(arg?: unknown): Promise<void> {
+    const branchName = this.resolveBranchNameForActionHub(arg)
+      ?? (await this.pickBranchName('Pick branch for IntelliGit actions'));
+
+    if (!branchName) {
+      return;
+    }
+
+    const currentBranch = await this.git.getCurrentBranch();
+    const isCurrentBranch = branchName === currentBranch;
+    const branch = this.state.branches.find((item) => item.name === branchName);
+    const canRenameOrDelete = branch?.type !== 'remote';
+
+    type BranchHubAction = {
+      id: string;
+      label: string;
+      description?: string;
+      run: () => Promise<void>;
+    };
+
+    const actions: BranchHubAction[] = [];
+
+    if (!isCurrentBranch) {
+      actions.push({
+        id: 'checkout',
+        label: 'Checkout branch',
+        run: async () => {
+          await this.git.checkoutBranch(branchName);
+          await this.state.refreshAll();
+        }
+      });
+    }
+
+    actions.push({
+      id: 'compare',
+      label: 'Compare with current',
+      description: `${currentBranch} ↔ ${branchName}`,
+      run: async () => {
+        await this.editor.openBranchCompare(currentBranch, branchName);
+      }
+    });
+
+    if (canRenameOrDelete) {
+      actions.push({
+        id: 'rename',
+        label: 'Rename branch',
+        run: async () => {
+          const renamedTo = await vscode.window.showInputBox({
+            title: `Rename branch ${branchName}`,
+            value: branchName,
+            validateInput: (value) => (value.trim() ? undefined : 'Branch name is required')
+          });
+
+          if (!renamedTo || renamedTo.trim() === branchName) {
+            return;
+          }
+
+          await this.git.renameBranch(branchName, renamedTo.trim());
+          await this.state.refreshAll();
+        }
+      });
+
+      actions.push({
+        id: 'delete',
+        label: 'Delete branch',
+        run: async () => {
+          const confirmed = await confirmDangerousAction({
+            title: 'Delete branch',
+            detail: `Branch: ${branchName}`,
+            acceptLabel: 'Delete'
+          });
+
+          if (!confirmed) {
+            return;
+          }
+
+          await this.git.deleteBranch(branchName);
+          await this.state.refreshAll();
+        }
+      });
+    }
+
+    if (!isCurrentBranch) {
+      actions.push({
+        id: 'merge',
+        label: 'Merge into current branch',
+        description: `${branchName} → ${currentBranch}`,
+        run: async () => {
+          const confirmed = await confirmDangerousAction({
+            title: 'Merge into current branch',
+            detail: `Source branch: ${branchName}`,
+            acceptLabel: 'Merge'
+          });
+
+          if (!confirmed) {
+            return;
+          }
+
+          await this.git.mergeIntoCurrent(branchName);
+          await this.state.refreshAll();
+        }
+      });
+
+      actions.push({
+        id: 'rebase',
+        label: 'Rebase current onto this branch',
+        description: `${currentBranch} onto ${branchName}`,
+        run: async () => {
+          const confirmed = await confirmDangerousAction({
+            title: 'Rebase current branch',
+            detail: `Rebase onto: ${branchName}`,
+            acceptLabel: 'Rebase'
+          });
+
+          if (!confirmed) {
+            return;
+          }
+
+          await this.git.rebaseCurrentOnto(branchName);
+          await this.state.refreshAll();
+        }
+      });
+    }
+
+    const picked = await vscode.window.showQuickPick(
+      actions.map((action) => ({
+        label: action.label,
+        description: action.description,
+        id: action.id
+      })),
+      {
+        title: `Branch actions: ${branchName}`,
+        placeHolder: 'Choose an action'
+      }
+    );
+
+    if (!picked) {
+      return;
+    }
+
+    const action = actions.find((item) => item.id === picked.id);
+    if (!action) {
+      return;
+    }
+
+    await action.run();
+  }
+
   private async openDiffWorkflow(): Promise<void> {
     const mode = await vscode.window.showQuickPick(
       [
@@ -1245,6 +1397,40 @@ export class CommandController {
       { title }
     );
     return picked?.label;
+  }
+
+  private resolveBranchNameForActionHub(arg: unknown): string | undefined {
+    if (arg instanceof BranchTreeItem) {
+      return arg.branch.name;
+    }
+
+    if (typeof arg !== 'string') {
+      return undefined;
+    }
+
+    const raw = arg.trim();
+    if (!raw) {
+      return undefined;
+    }
+
+    const exactMatch = this.state.branches.find((branch) => branch.name === raw);
+    if (exactMatch) {
+      return exactMatch.name;
+    }
+
+    const uniqueLocalShortMatch = this.state.branches.filter(
+      (branch) => branch.type === 'local' && branch.shortName === raw
+    );
+    if (uniqueLocalShortMatch.length === 1) {
+      return uniqueLocalShortMatch[0].name;
+    }
+
+    const uniqueShortMatch = this.state.branches.filter((branch) => branch.shortName === raw);
+    if (uniqueShortMatch.length === 1) {
+      return uniqueShortMatch[0].name;
+    }
+
+    return undefined;
   }
 
   private async pickBranchName(title = 'Pick branch', remoteOnly = false): Promise<string | undefined> {
