@@ -134,7 +134,13 @@
       },
       {
         "command": "intelliGit.branch.search",
-        "title": "Search Branches"
+        "title": "Search Branches",
+        "icon": "$(search)"
+      },
+      {
+        "command": "intelliGit.branch.clearSearch",
+        "title": "Clear Branch Search",
+        "icon": "$(search-stop)"
       },
       {
         "command": "intelliGit.stash.create",
@@ -410,6 +416,16 @@
           "command": "intelliGit.quickActions",
           "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation@1"
+        },
+        {
+          "command": "intelliGit.branch.search",
+          "when": "view == intelliGit.branches",
+          "group": "navigation@2"
+        },
+        {
+          "command": "intelliGit.branch.clearSearch",
+          "when": "view == intelliGit.branches && intelliGit.branchFilterActive",
+          "group": "navigation@3"
         },
         {
           "command": "intelliGit.changes.toggleViewMode",

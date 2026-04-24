@@ -77,6 +77,10 @@ export class BranchTreeProvider implements vscode.TreeDataProvider<vscode.TreeIt
     this.emitter.fire();
   }
 
+  getFilter(): string {
+    return this.filterText;
+  }
+
   refresh(): void {
     this.emitter.fire();
   }

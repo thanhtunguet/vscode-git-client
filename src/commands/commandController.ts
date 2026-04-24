@@ -47,6 +47,7 @@ export class CommandController {
     },
     private readonly branchProvider: {
       setFilter(value: string): void;
+      getFilter(): string;
       refresh(): void;
     }
   ) { }
@@ -140,11 +141,20 @@ export class CommandController {
 
     register('intelliGit.branch.search', async () => {
       const query = await vscode.window.showInputBox({
-        title: 'Search branches',
-        placeHolder: 'Type branch name filter'
+        title: 'Search Branches',
+        placeHolder: 'Filter by branch name…',
+        value: this.branchProvider.getFilter()
       });
+      if (query === undefined) {
+        return;
+      }
+      this.branchProvider.setFilter(query);
+      await vscode.commands.executeCommand('setContext', 'intelliGit.branchFilterActive', query.trim().length > 0);
+    });
 
-      this.branchProvider.setFilter(query ?? '');
+    register('intelliGit.branch.clearSearch', async () => {
+      this.branchProvider.setFilter('');
+      await vscode.commands.executeCommand('setContext', 'intelliGit.branchFilterActive', false);
     });
 
     register('intelliGit.branch.checkout', async (arg?: unknown) => {
