@@ -5,15 +5,12 @@ import { GutterDecorationController } from './editor/gutterDecorationController'
 import { VirtualGitContentProvider } from './editor/virtualGitContentProvider';
 import { Logger } from './logger';
 import { BranchTreeProvider } from './providers/branchTreeProvider';
-import { ChangeFileTreeItem, ChangesTreeProvider } from './providers/changesTreeProvider';
-import { ChangesWebviewProvider } from './providers/changesWebviewProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphTreeProvider } from './providers/graphTreeProvider';
 import { StashTreeProvider } from './providers/stashTreeProvider';
 import { GitService } from './services/gitService';
 import { getRepositoryContext } from './services/repositoryContext';
-import { ChangelistStore } from './state/changelistStore';
 import { StateStore } from './state/stateStore';
 
 type GitBaseApi = {
@@ -63,9 +60,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
     context.subscriptions.push(
       vscode.window.createTreeView('intelliGit.branches', { treeDataProvider: emptyProvider }),
-      vscode.window.registerWebviewViewProvider('intelliGit.changes', {
-        resolveWebviewView(view) { view.webview.html = '<body style="color:var(--vscode-foreground);padding:8px">Open a workspace to use IntelliGit.</body>'; }
-      }),
       vscode.window.createTreeView('intelliGit.stashes', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.graph', { treeDataProvider: emptyProvider }),
       vscode.window.createTreeView('intelliGit.commitView', { treeDataProvider: emptyProvider })
@@ -76,9 +70,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const gitService = new GitService(repositoryContext, logger, configuration);
   const stateStore = new StateStore(gitService, logger, configuration, context.workspaceState);
 
-  const gitRoot = await gitService.getGitRoot();
   const branchProvider = new BranchTreeProvider(stateStore);
-  const changesProvider = new ChangesTreeProvider(stateStore, gitRoot);
   const stashProvider = new StashTreeProvider(stateStore);
   const graphProvider = new GraphTreeProvider(stateStore, gitService);
 
@@ -108,43 +100,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const editor = new EditorOrchestrator(gitService, stateStore, virtualProvider, commitFilesProvider);
 
-  const changelistStore = new ChangelistStore(context.workspaceState);
-  const changesWebviewProvider = new ChangesWebviewProvider(context.extensionUri, gitService, stateStore, editor, changelistStore);
-
   const gutterController = new GutterDecorationController(gitService, stateStore, logger);
 
   context.subscriptions.push(
-    changelistStore,
     gutterController,
     branchView,
     stashView,
     graphView,
     commitView,
     commitDecorationProvider,
-    vscode.window.registerFileDecorationProvider(commitDecorationProvider),
-    vscode.window.registerWebviewViewProvider('intelliGit.changes', changesWebviewProvider, {
-      webviewOptions: { retainContextWhenHidden: true }
-    })
+    vscode.window.registerFileDecorationProvider(commitDecorationProvider)
   );
   const commandController = new CommandController(
     gitService,
     stateStore,
     editor,
     logger,
-    commitFilesProvider,
-    {
-      getSelectedPaths(selectedItems: readonly ChangeFileTreeItem[]): string[] {
-        return changesProvider.getSelectedPaths(selectedItems);
-      }
-    }
+    commitFilesProvider
   );
   commandController.register(context);
   await registerBranchActionHubInGitCheckout(context, logger);
-  context.subscriptions.push(
-    vscode.commands.registerCommand('intelliGit.changes.toggleViewMode', () => {
-      changesWebviewProvider.toggleViewMode();
-    })
-  );
   stateStore.attachAutoRefresh(context);
 
   context.subscriptions.push(

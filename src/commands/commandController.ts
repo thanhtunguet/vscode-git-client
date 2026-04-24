@@ -3,7 +3,6 @@ import { EditorOrchestrator } from '../editor/editorOrchestrator';
 import { confirmDangerousAction } from '../guards';
 import { Logger } from '../logger';
 import { BranchTreeItem } from '../providers/branchTreeProvider';
-import { ChangeFileTreeItem } from '../providers/changesTreeProvider';
 import { CommitActionContext, CommitFileTreeItem, RevisionFileTreeItem } from '../providers/commitFilesTreeProvider';
 import { GraphCommitFileTreeItem, GraphCommitTreeItem } from '../providers/graphTreeProvider';
 import { StashTreeItem } from '../providers/stashTreeProvider';
@@ -43,9 +42,6 @@ export class CommandController {
     private readonly logger: Logger,
     private readonly commitFilesView: {
       getCommitActionContext(selectedItems: readonly CommitFileTreeItem[]): CommitActionContext | undefined;
-    },
-    private readonly changesView: {
-      getSelectedPaths(selectedItems: readonly ChangeFileTreeItem[]): string[];
     }
   ) { }
 
@@ -58,8 +54,6 @@ export class CommandController {
       value instanceof GraphCommitFileTreeItem ? value : undefined;
     const asCommitViewFileItem = (value: unknown): CommitFileTreeItem | undefined =>
       value instanceof CommitFileTreeItem ? value : undefined;
-    const asChangeFileItem = (value: unknown): ChangeFileTreeItem | undefined =>
-      value instanceof ChangeFileTreeItem ? value : undefined;
     const asRevisionViewFileItem = (value: unknown): RevisionFileTreeItem | undefined =>
       value instanceof RevisionFileTreeItem ? value : undefined;
     const asFileResourceUri = (value: unknown): vscode.Uri | undefined => {
@@ -86,7 +80,6 @@ export class CommandController {
       }
 
       const filePath =
-        asChangeFileItem(value)?.filePath ??
         asGraphFileItem(value)?.filePath ??
         asCommitViewFileItem(value)?.filePath ??
         asRevisionViewFileItem(value)?.filePath;
@@ -353,53 +346,6 @@ export class CommandController {
 
       await this.git.createStash(message, { includeUntracked, keepIndex });
       await this.state.refreshAll();
-    });
-
-    register('intelliGit.changes.openFileDiff', async (arg?: unknown) => {
-      const item = asChangeFileItem(arg);
-      if (!item) {
-        return;
-      }
-
-      if (item.status.trim() === '??') {
-        await this.editor.openWorkingTreeFile(item.filePath);
-        return;
-      }
-
-      await this.editor.openDiffForFile({
-        path: item.filePath,
-        leftRef: 'HEAD',
-        rightRef: 'WORKTREE',
-        title: `HEAD ↔ WORKTREE · ${item.filePath}`
-      });
-    });
-
-    register('intelliGit.changes.stashSelected', async (arg?: unknown, selected?: unknown) => {
-      const selectedItems = this.toSelectedChangeItems(arg, selected);
-      const paths = this.changesView.getSelectedPaths(selectedItems);
-      if (paths.length === 0) {
-        void vscode.window.showInformationMessage('No changes to stash.');
-        return;
-      }
-
-      const message = (await vscode.window.showInputBox({
-        title: 'Stash selected changes',
-        value: 'Shelved changes',
-        placeHolder: 'Shelve message'
-      }))?.trim();
-
-      if (!message) {
-        return;
-      }
-
-      const keepIndex =
-        (await vscode.window.showQuickPick(['No', 'Yes'], {
-          title: 'Keep staged changes in index?'
-        })) === 'Yes';
-
-      await this.git.stashFiles(paths, message, { keepIndex });
-      await this.state.refreshAll();
-      void vscode.window.showInformationMessage(`Stashed ${paths.length} selected file(s).`);
     });
 
     register('intelliGit.stash.unshelve', async (arg?: unknown) => {
@@ -1488,7 +1434,6 @@ export class CommandController {
 
   private pickConflictPathArg(arg: unknown): string | undefined {
     if (typeof arg === 'string' && arg.trim()) { return arg.trim(); }
-    if (arg instanceof ChangeFileTreeItem) { return arg.filePath; }
     return undefined;
   }
 
@@ -1710,14 +1655,4 @@ export class CommandController {
     return undefined;
   }
 
-  private toSelectedChangeItems(arg: unknown, selectedArg: unknown): ChangeFileTreeItem[] {
-    const selectedList = Array.isArray(selectedArg) ? selectedArg : [];
-    const first = arg instanceof ChangeFileTreeItem ? arg : undefined;
-    const fromSelected = selectedList.filter((item): item is ChangeFileTreeItem => item instanceof ChangeFileTreeItem);
-    const all = [...fromSelected];
-    if (first) {
-      all.unshift(first);
-    }
-    return [...new Set(all)];
-  }
 }

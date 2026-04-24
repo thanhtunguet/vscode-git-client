@@ -19,7 +19,6 @@
   },
   "activationEvents": [
     "onStartupFinished",
-    "onView:intelliGit.changes",
     "onView:intelliGit.stashes",
     "onView:intelliGit.branches",
     "onView:intelliGit.graph",
@@ -44,13 +43,6 @@
     },
     "views": {
       "intelliGit": [
-        {
-          "id": "intelliGit.changes",
-          "name": "Changes",
-          "type": "webview",
-          "visibility": "visible",
-          "icon": "media/intelligit.svg"
-        },
         {
           "id": "intelliGit.branches",
           "name": "Branches",
@@ -334,19 +326,6 @@
         "title": "Open File Blame"
       },
       {
-        "command": "intelliGit.changes.toggleViewMode",
-        "title": "Toggle Tree/List View",
-        "icon": "$(list-tree)"
-      },
-      {
-        "command": "intelliGit.changes.openFileDiff",
-        "title": "Open Change Diff"
-      },
-      {
-        "command": "intelliGit.changes.stashSelected",
-        "title": "Stash Selected Changes"
-      },
-      {
         "command": "intelliGit.stash.unshelve",
         "title": "Unshelve Stash"
       },
@@ -406,12 +385,12 @@
       "view/title": [
         {
           "command": "intelliGit.refresh",
-          "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation"
         },
         {
           "command": "intelliGit.quickActions",
-          "when": "view == intelliGit.branches || view == intelliGit.changes || view == intelliGit.stashes || view == intelliGit.graph",
+          "when": "view == intelliGit.branches || view == intelliGit.stashes || view == intelliGit.graph",
           "group": "navigation@1"
         },
         {
@@ -428,54 +407,9 @@
           "command": "intelliGit.graph.clearFilter",
           "when": "view == intelliGit.graph && intelliGit.graphFilterActive",
           "group": "navigation@3"
-        },
-        {
-          "command": "intelliGit.changes.toggleViewMode",
-          "when": "view == intelliGit.changes",
-          "group": "navigation@2"
-        },
-        {
-          "command": "intelliGit.operation.continue",
-          "when": "view == intelliGit.changes && intelliGit.operation != none",
-          "group": "navigation@3"
-        },
-        {
-          "command": "intelliGit.operation.skip",
-          "when": "view == intelliGit.changes && (intelliGit.operation == rebase || intelliGit.operation == cherry-pick)",
-          "group": "navigation@4"
-        },
-        {
-          "command": "intelliGit.operation.abort",
-          "when": "view == intelliGit.changes && intelliGit.operation != none",
-          "group": "navigation@5"
         }
       ],
       "view/item/context": [
-        {
-          "command": "intelliGit.changes.openFileDiff",
-          "when": "view == intelliGit.changes && viewItem == changeFile",
-          "group": "inline"
-        },
-        {
-          "command": "intelliGit.changes.stashSelected",
-          "when": "view == intelliGit.changes && viewItem == changeFile",
-          "group": "navigation"
-        },
-        {
-          "command": "intelliGit.conflict.acceptOurs",
-          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
-          "group": "1_resolve@1"
-        },
-        {
-          "command": "intelliGit.conflict.acceptTheirs",
-          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
-          "group": "1_resolve@2"
-        },
-        {
-          "command": "intelliGit.conflict.acceptBoth",
-          "when": "view == intelliGit.changes && viewItem == changeFile && intelliGit.hasConflicts",
-          "group": "1_resolve@3"
-        },
         {
           "command": "intelliGit.branch.checkout",
           "when": "view == intelliGit.branches && viewItem == branchRef",
