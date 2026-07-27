@@ -10,6 +10,12 @@ export async function handleEditCommitMessage(this: CommandController, arg?: unk
       }
   
       const details = await this.git.getCommitDetails(sha);
+      if (!details.commit.subject) {
+        void vscode.window.showErrorMessage(
+          `Unable to load commit message for ${sha.slice(0, 8)}.`
+        );
+        return;
+      }
       const currentMessage = details.commit.subject.trim();
       const nextMessage = await vscode.window.showInputBox({
         title: `Edit commit message (${sha.slice(0, 8)})`,

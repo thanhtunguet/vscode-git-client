@@ -26,8 +26,14 @@ export async function getGraph(
   if (filters?.branch) {
     const branchValues = Array.isArray(filters.branch) ? filters.branch : [filters.branch];
     const hasExactMatch = await this.resolveExactBranchRef(branchValues[0]);
+    const exactSha =
+      branchValues.length === 1 && !hasExactMatch
+        ? await this.resolveShaFilter(branchValues[0])
+        : undefined;
     if (branchValues.length === 1 && hasExactMatch) {
       args.push(hasExactMatch);
+    } else if (exactSha) {
+      args.push(exactSha);
     } else {
       for (const keyword of branchValues) {
         const normalized = keyword.trim();
