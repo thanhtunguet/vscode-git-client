@@ -165,7 +165,8 @@
           shas: selectedShas,
           subject: selectedSubjects[0] || '',
           subjects: selectedSubjects,
-          isContinuous: typeof isContinuousSelection === 'function' ? isContinuousSelection() : false
+          isContinuous: typeof isContinuousSelection === 'function' ? isContinuousSelection() : false,
+          reverseOrder: event.shiftKey === true
         });
         close();
       });

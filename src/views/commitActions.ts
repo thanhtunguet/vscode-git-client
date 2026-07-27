@@ -29,6 +29,7 @@ export interface CommitActionMessage {
   readonly subject?: string;
   readonly subjects?: readonly string[];
   readonly isContinuous?: boolean;
+  readonly reverseOrder?: boolean;
 }
 
 export async function handleCommitAction(message: CommitActionMessage): Promise<void> {
@@ -76,34 +77,44 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       }
       await runForEachSha(GitCommand.GraphOpenDetails);
       return;
-    case 'copyCommitId':
-      await vscode.env.clipboard.writeText(normalizedShas.join('\n'));
+    case 'copyCommitId': {
+      const orderedShas = message.reverseOrder ? [...normalizedShas].reverse() : normalizedShas;
+      await vscode.env.clipboard.writeText(orderedShas.join('\n'));
       void vscode.window.setStatusBarMessage(
         normalizedShas.length > 1
-          ? `Copied ${normalizedShas.length} commit IDs`
+          ? `Copied ${normalizedShas.length} commit IDs${message.reverseOrder ? ' (reversed)' : ''}`
           : `Copied commit ID ${sha}`,
         1500
       );
       return;
-    case 'copyCommitMessage':
+    }
+    case 'copyCommitMessage': {
       if (normalizedSubjects.length === 0) {
         return;
       }
-      await vscode.env.clipboard.writeText(normalizedSubjects.join('\n'));
+      const orderedSubjects = message.reverseOrder
+        ? [...normalizedSubjects].reverse()
+        : normalizedSubjects;
+      await vscode.env.clipboard.writeText(orderedSubjects.join('\n'));
       void vscode.window.setStatusBarMessage(
         normalizedSubjects.length > 1
-          ? `Copied ${normalizedSubjects.length} commit messages`
+          ? `Copied ${normalizedSubjects.length} commit messages${message.reverseOrder ? ' (reversed)' : ''}`
           : 'Copied commit message',
         1500
       );
       return;
-    case 'copyRevisionNumber':
-      await vscode.env.clipboard.writeText(normalizedShas.join('\n'));
+    }
+    case 'copyRevisionNumber': {
+      const orderedShas = message.reverseOrder ? [...normalizedShas].reverse() : normalizedShas;
+      await vscode.env.clipboard.writeText(orderedShas.join('\n'));
       void vscode.window.setStatusBarMessage(
-        normalizedShas.length > 1 ? `Copied ${normalizedShas.length} revisions` : `Copied ${sha}`,
+        normalizedShas.length > 1
+          ? `Copied ${normalizedShas.length} revisions${message.reverseOrder ? ' (reversed)' : ''}`
+          : `Copied ${sha}`,
         1500
       );
       return;
+    }
     case 'createPatch':
       if (message.isContinuous && normalizedShas.length > 1) {
         await vscode.commands.executeCommand(
@@ -194,6 +205,7 @@ export function isCommitActionMessage(value: unknown): value is CommitActionMess
     typeof candidate.sha === 'string' &&
     (candidate.subject === undefined || typeof candidate.subject === 'string') &&
     (candidate.isContinuous === undefined || typeof candidate.isContinuous === 'boolean') &&
+    (candidate.reverseOrder === undefined || typeof candidate.reverseOrder === 'boolean') &&
     hasValidShas &&
     hasValidSubjects
   );
