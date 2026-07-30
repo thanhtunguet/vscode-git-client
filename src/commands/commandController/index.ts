@@ -202,6 +202,19 @@ import { toSelectedItems } from './toSelectedItems';
 import { toTagRef } from './toTagRef';
 import { toTagRevision } from './toTagRevision';
 
+import { BranchCommands } from './groups/branchCommands';
+import { CommitDiffViewCommands } from './groups/commitDiffViewCommands';
+import { CompareCommands } from './groups/compareCommands';
+import { GraphCommands } from './groups/graphCommands';
+import { OperationsCommands } from './groups/operationsCommands';
+import { PatchCommands } from './groups/patchCommands';
+import { RemoteCommands } from './groups/remoteCommands';
+import { StagingCommands } from './groups/stagingCommands';
+import { StashCommands } from './groups/stashCommands';
+import { SubmoduleCommands } from './groups/submoduleCommands';
+import { TagCommands } from './groups/tagCommands';
+import { WorktreeCommands } from './groups/worktreeCommands';
+
 export class CommandController {
   constructor(
     public readonly git: GitService,
@@ -604,4 +617,34 @@ export class CommandController {
   public readonly handleCommitViewClose = handleCommitViewClose;
 
   public readonly handleRefresh = handleRefresh;
+
+  // ── Domain command groups ──────────────────────────────────────────────
+  // Grouped, facade-preserving views over the flat members above (see
+  // docs/superpowers/plans/2026-07-30-split-command-controller.md, Phase 1).
+  // Every flat member is kept as-is so existing callers (activate(), tests)
+  // are unaffected; new code can use these narrower groups instead.
+
+  public readonly branch = new BranchCommands(this);
+
+  public readonly tag = new TagCommands(this);
+
+  public readonly stash = new StashCommands(this);
+
+  public readonly graph = new GraphCommands(this);
+
+  public readonly commitDiffView = new CommitDiffViewCommands(this);
+
+  public readonly compare = new CompareCommands(this);
+
+  public readonly operations = new OperationsCommands(this);
+
+  public readonly patch = new PatchCommands(this);
+
+  public readonly staging = new StagingCommands(this);
+
+  public readonly remote = new RemoteCommands(this);
+
+  public readonly submodule = new SubmoduleCommands(this);
+
+  public readonly worktree = new WorktreeCommands(this);
 }
