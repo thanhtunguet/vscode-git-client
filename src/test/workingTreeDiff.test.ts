@@ -396,6 +396,14 @@ describe('GitService graph branch filtering', () => {
       assert.ok(Array.isArray(commits));
     });
   });
+
+  it('prioritizes commit ID filtering when message filter is a commit SHA', async () => {
+    const headSha = runGit(['rev-parse', 'HEAD'], repoDir).trim();
+    const shortSha = headSha.slice(0, 7);
+    const commits = await git.getGraph(10, 0, { message: shortSha });
+    assert.ok(commits.length > 0);
+    assert.strictEqual(commits[0].sha, headSha);
+  });
 });
 
 describe('GitService graph scope across refs', () => {

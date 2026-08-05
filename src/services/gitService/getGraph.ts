@@ -12,6 +12,99 @@ export async function getGraph(
 ): Promise<GraphCommit[]> {
   const format = ['%m', '%H', '%h', '%P', '%D', '%an', '%aI', '%s'].join(FIELD_SEPARATOR);
 
+  const parseCommits = (stdout: string): GraphCommit[] =>
+    stdout
+      .split(RECORD_SEPARATOR)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [graph, sha, shortSha, parentsRaw, refsRaw, author, date, subject] =
+          line.split(FIELD_SEPARATOR);
+        const parents = parentsRaw?.split(' ').filter(Boolean) ?? [];
+        const refs = refsRaw
+          ? refsRaw
+              .split(',')
+              .map((ref) => ref.trim())
+              .filter(Boolean)
+          : [];
+        return {
+          graph,
+          sha,
+          shortSha,
+          parents,
+          refs,
+          author,
+          date,
+          subject
+        } as GraphCommit;
+      });
+
+  let priorityCommit: GraphCommit | undefined;
+
+  if (skip === 0 && filters?.message) {
+    const trimmedMessage = filters.message.trim();
+    const sha = await this.resolveShaFilter(trimmedMessage);
+    if (sha) {
+      try {
+        const directResult = await this.runGit([
+          'log',
+          '--date=iso-strict',
+          '--decorate=full',
+          '--max-count=1',
+          `--format=${format}${RECORD_SEPARATOR}`,
+          `${sha}^!`
+        ]);
+        const directCommits = parseCommits(directResult.stdout);
+        if (directCommits.length > 0) {
+          const cand = directCommits[0];
+          let matches = true;
+          if (filters.author) {
+            const authors = Array.isArray(filters.author) ? filters.author : [filters.author];
+            const authorLower = cand.author.toLowerCase();
+            matches = authors.some((a) => authorLower.includes(a.trim().toLowerCase()));
+          }
+          if (matches && filters.since) {
+            const sinceTime = new Date(filters.since).getTime();
+            if (!Number.isNaN(sinceTime) && new Date(cand.date).getTime() < sinceTime) {
+              matches = false;
+            }
+          }
+          if (matches && filters.until) {
+            const untilTime = new Date(filters.until).getTime();
+            if (!Number.isNaN(untilTime) && new Date(cand.date).getTime() > untilTime) {
+              matches = false;
+            }
+          }
+          if (matches && filters.branch) {
+            const branches = Array.isArray(filters.branch) ? filters.branch : [filters.branch];
+            let matchesBranch = false;
+            for (const b of branches) {
+              const trimmed = b.trim();
+              if (!trimmed) {
+                continue;
+              }
+              const exact = await this.resolveExactBranchRef(trimmed);
+              const targetRef = exact || trimmed;
+              try {
+                await this.runGit(['merge-base', '--is-ancestor', sha, targetRef]);
+                matchesBranch = true;
+                break;
+              } catch {
+                // Not an ancestor
+              }
+            }
+            matches = matchesBranch;
+          }
+          if (matches) {
+            priorityCommit = cand;
+          }
+        }
+      } catch {
+        // Ignore lookup failure
+      }
+    }
+  }
+
   const args = [
     'log',
     '--date=iso-strict',
@@ -55,12 +148,7 @@ export async function getGraph(
     }
   }
   if (filters?.message) {
-    const sha = await this.resolveShaFilter(filters.message);
-    if (sha) {
-      args.push(sha);
-    } else {
-      args.push(`--grep=${filters.message}`);
-    }
+    args.push(`--grep=${filters.message}`);
   }
   if (filters?.since) {
     args.push(`--since=${filters.since}`);
@@ -71,29 +159,12 @@ export async function getGraph(
 
   const result = await this.runGit(args);
 
-  return result.stdout
-    .split(RECORD_SEPARATOR)
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [graph, sha, shortSha, parentsRaw, refsRaw, author, date, subject] =
-        line.split(FIELD_SEPARATOR);
-      const parents = parentsRaw?.split(' ').filter(Boolean) ?? [];
-      const refs = refsRaw
-        ? refsRaw
-            .split(',')
-            .map((ref) => ref.trim())
-            .filter(Boolean)
-        : [];
-      return {
-        graph,
-        sha,
-        shortSha,
-        parents,
-        refs,
-        author,
-        date,
-        subject
-      } as GraphCommit;
-    });
+  const parsed = parseCommits(result.stdout);
+
+  if (priorityCommit) {
+    const filteredParsed = parsed.filter((c) => c.sha !== priorityCommit.sha);
+    return [priorityCommit, ...filteredParsed].slice(0, maxCount);
+  }
+
+  return parsed;
 }
