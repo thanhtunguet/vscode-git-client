@@ -404,6 +404,15 @@ describe('GitService graph branch filtering', () => {
     assert.ok(commits.length > 0);
     assert.strictEqual(commits[0].sha, headSha);
   });
+
+  it('falls back to message text search when a commit-ID-shaped filter does not resolve to a commit', async () => {
+    runGit(['checkout', 'main'], repoDir);
+    fs.appendFileSync(path.join(repoDir, 'history.txt'), 'cafebabe\n');
+    runGit(['commit', '-am', 'cafebabe unresolved token fix'], repoDir);
+
+    const commits = await git.getGraph(100, 0, { message: 'cafebabe' });
+    assert.ok(commits.some((commit) => commit.subject === 'cafebabe unresolved token fix'));
+  });
 });
 
 describe('GitService graph scope across refs', () => {
