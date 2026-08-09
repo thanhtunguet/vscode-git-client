@@ -975,6 +975,11 @@
           "group": "navigation@4"
         },
         {
+          "command": "vscodeGitClient.graph.showRepositoryAtRevision",
+          "when": "view == vscodeGitClient.graph && viewItem == graphCommit",
+          "group": "navigation@4.5"
+        },
+        {
           "command": "vscodeGitClient.graph.openFileDiff",
           "when": "view == vscodeGitClient.commitView && viewItem =~ /commitViewSelectableChange/",
           "group": "navigation@0"
