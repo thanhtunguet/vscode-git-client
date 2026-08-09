@@ -5,7 +5,6 @@ export type CommitAction =
   | 'openDetails'
   | 'copyCommitId'
   | 'copyCommitMessage'
-  | 'copyRevisionNumber'
   | 'createPatch'
   | 'cherryPick'
   | 'checkoutRevision'
@@ -100,17 +99,6 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
         normalizedSubjects.length > 1
           ? `Copied ${normalizedSubjects.length} commit messages${message.reverseOrder ? ' (reversed)' : ''}`
           : 'Copied commit message',
-        1500
-      );
-      return;
-    }
-    case 'copyRevisionNumber': {
-      const orderedShas = message.reverseOrder ? [...normalizedShas].reverse() : normalizedShas;
-      await vscode.env.clipboard.writeText(orderedShas.join('\n'));
-      void vscode.window.setStatusBarMessage(
-        normalizedShas.length > 1
-          ? `Copied ${normalizedShas.length} revisions${message.reverseOrder ? ' (reversed)' : ''}`
-          : `Copied ${sha}`,
         1500
       );
       return;

@@ -65,12 +65,12 @@ describe('commit context menu copy actions', () => {
     assert.strictEqual(clipboard.text(), 'Second\nFirst');
   });
 
-  it('reverses revision numbers when reverseOrder is set', async () => {
+  it('copies only commit IDs from context menu (no duplicate copy actions)', async () => {
     const clipboard = captureClipboard();
 
     await handleCommitAction({
       type: 'commitAction',
-      action: 'copyRevisionNumber',
+      action: 'copyCommitId',
       sha: 'aaa',
       shas: ['aaa', 'bbb', 'ccc'],
       reverseOrder: true
