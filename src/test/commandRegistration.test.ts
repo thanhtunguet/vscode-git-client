@@ -78,7 +78,8 @@ describe('Command Registration', () => {
           dispose: () => {}
         } as any,
 
-        {} as any
+        {} as any,
+        { fsPath: '/mock/extension/path' } as vscode.Uri
       );
 
       const context = {
@@ -139,7 +140,8 @@ describe('Command Registration', () => {
           dispose: () => {}
         } as any,
 
-        {} as any
+        {} as any,
+        { fsPath: '/mock/extension/path' } as vscode.Uri
       );
 
       const context = {
@@ -188,7 +190,8 @@ describe('Command Registration', () => {
           dispose: () => {}
         } as any,
 
-        {} as any
+        {} as any,
+        { fsPath: '/mock/extension/path' } as vscode.Uri
       );
 
       const context = {
@@ -295,7 +298,8 @@ describe('Command Registration', () => {
           dispose: () => {}
         } as any,
 
-        {} as any
+        {} as any,
+        { fsPath: '/mock/extension/path' } as vscode.Uri
       );
 
       const context1 = {

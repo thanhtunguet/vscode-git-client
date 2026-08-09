@@ -49,11 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const logger = new Logger();
   context.subscriptions.push({ dispose: () => logger.dispose() });
   await vscode.commands.executeCommand('setContext', GitCommand.CommitViewVisible, false);
-  await vscode.commands.executeCommand(
-    'setContext',
-    GitCommand.CommitViewCanRevertSelected,
-    false
-  );
+  await vscode.commands.executeCommand('setContext', GitCommand.CommitViewCanRevertSelected, false);
   await vscode.commands.executeCommand(
     'setContext',
     GitCommand.CommitViewCanCherryPickSelected,
@@ -64,11 +60,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     GitCommand.CommitViewCanCreatePatchSelected,
     false
   );
-  await vscode.commands.executeCommand(
-    'setContext',
-    GitCommand.GraphMultiCommitSelection,
-    false
-  );
+  await vscode.commands.executeCommand('setContext', GitCommand.GraphMultiCommitSelection, false);
   await vscode.commands.executeCommand('setContext', GitCommand.RemoteHasUrl, false);
 
   const configuration = vscode.workspace.getConfiguration('vscodeGitClient');
@@ -100,32 +92,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     };
     context.subscriptions.push(
       ...compactTreeViews([
-        createTreeViewSafely(
-          GitCommand.BranchesView,
-          { treeDataProvider: emptyProvider },
-          logger
-        ),
-        createTreeViewSafely(
-          GitCommand.StashesView,
-          { treeDataProvider: emptyProvider },
-          logger
-        ),
+        createTreeViewSafely(GitCommand.BranchesView, { treeDataProvider: emptyProvider }, logger),
+        createTreeViewSafely(GitCommand.StashesView, { treeDataProvider: emptyProvider }, logger),
         createTreeViewSafely(GitCommand.GraphView, { treeDataProvider: emptyProvider }, logger),
         createTreeViewSafely(
           GitCommand.CommitViewView,
           { treeDataProvider: emptyProvider },
           logger
         ),
-        createTreeViewSafely(
-          GitCommand.WorktreesView,
-          { treeDataProvider: emptyProvider },
-          logger
-        ),
-        createTreeViewSafely(
-          GitCommand.SubmodulesView,
-          { treeDataProvider: emptyProvider },
-          logger
-        )
+        createTreeViewSafely(GitCommand.WorktreesView, { treeDataProvider: emptyProvider }, logger),
+        createTreeViewSafely(GitCommand.SubmodulesView, { treeDataProvider: emptyProvider }, logger)
       ])
     );
     return;
@@ -263,7 +239,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     stateStore,
     editor,
     logger,
-    commitFilesProvider
+    commitFilesProvider,
+    context.extensionUri
   );
   commandController.register(context);
   await registerBranchActionHubInGitCheckout(context, logger);

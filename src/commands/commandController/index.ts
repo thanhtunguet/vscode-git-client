@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { EditorOrchestrator } from '../../editor/editorOrchestrator';
 import { Logger } from '../../logger';
 import {
@@ -90,6 +91,7 @@ import { handleGraphOpenRepositoryFileAtRevision } from './handleGraphOpenReposi
 import { handleGraphRebaseInteractiveFromHere } from './handleGraphRebaseInteractiveFromHere';
 import { handleGraphRevert } from './handleGraphRevert';
 import { handleGraphShowRepositoryAtRevision } from './handleGraphShowRepositoryAtRevision';
+import { handleGraphVisualShow } from './handleGraphVisualShow';
 import { handleMergeFinalize } from './handleMergeFinalize';
 import { handleMergeNext } from './handleMergeNext';
 import { handleMergeOpenConflict } from './handleMergeOpenConflict';
@@ -216,7 +218,8 @@ export class CommandController {
       showCommit(sha: string, subject: string): Promise<void>;
       clear(): Promise<void>;
       isShowingCommit(sha: string): boolean;
-    }
+    },
+    public readonly extensionUri: vscode.Uri
   ) {}
 
   public readonly register = register;
@@ -502,6 +505,8 @@ export class CommandController {
   public readonly handleGraphClearFilter = handleGraphClearFilter;
 
   public readonly handleGraphShowRepositoryAtRevision = handleGraphShowRepositoryAtRevision;
+
+  public readonly handleGraphVisualShow = handleGraphVisualShow;
 
   public readonly handleGraphCreatePatchForRange = handleGraphCreatePatchForRange;
 

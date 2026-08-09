@@ -141,6 +141,8 @@ export enum GitCommand {
   BranchSearchView = 'vscodeGitClient.branchSearch',
   BranchCompare = 'vscodeGitClient.branchCompare',
   GraphFilterView = 'vscodeGitClient.graphFilter',
+  GraphVisualView = 'vscodeGitClient.graphVisualView',
+  GraphVisualShow = 'vscodeGitClient.graph.visualShow',
   // Context keys
   CommitViewVisible = 'vscodeGitClient.commitViewVisible',
   CommitViewCanRevertSelected = 'vscodeGitClient.commitViewCanRevertSelected',

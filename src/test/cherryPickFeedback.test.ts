@@ -68,6 +68,7 @@ function registerController(
       getCommitTimestamps: overrides.getCommitTimestamps ?? (async () => new Map()),
       getMergeConflicts: async () => [{ path: 'src/conflict.ts', status: 'UU' }],
       getOperationState: async () => ({ kind: 'rebase' }),
+
       mergeIntoCurrent:
         overrides.mergeIntoCurrent ??
         (async (branch: string) => {
@@ -115,7 +116,8 @@ function registerController(
       showCommit: async () => undefined,
       clear: async () => undefined,
       isShowingCommit: () => false
-    }
+    },
+    { fsPath: '/mock/extension/path' } as vscode.Uri
   );
 
   controller.register({ subscriptions: [] } as unknown as vscode.ExtensionContext);

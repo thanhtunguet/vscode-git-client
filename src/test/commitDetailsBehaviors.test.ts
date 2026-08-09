@@ -53,8 +53,10 @@ function registerController(params: {
       getAllFileItems: () => [],
       showCommit: async () => undefined,
       clear: async () => undefined,
+
       isShowingCommit: () => false
-    }) as never
+    }) as never,
+    { fsPath: '/mock/extension/path' } as vscode.Uri
   );
   controller.register({ subscriptions: [] } as unknown as vscode.ExtensionContext);
   return commands;

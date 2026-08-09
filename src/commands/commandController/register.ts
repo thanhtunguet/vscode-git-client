@@ -182,6 +182,8 @@ export function register(this: CommandController, context: vscode.ExtensionConte
 
   register(GitCommand.GraphLoadMore, this.handleGraphLoadMore.bind(this));
 
+  register(GitCommand.GraphVisualShow, this.handleGraphVisualShow.bind(this));
+
   register(GitCommand.DiffOpen, this.handleDiffOpen.bind(this));
 
   register(GitCommand.CompareOpen, this.handleCompareOpen.bind(this));

@@ -56,6 +56,7 @@ import { getFileStageContent } from './getFileStageContent';
 import { getGitDir } from './getGitDir';
 import { getGitRoot } from './getGitRoot';
 import { getGraph } from './getGraph';
+import { getVisualGraphData } from './getVisualGraphData';
 import { getHeadCommitMessage } from './getHeadCommitMessage';
 import { getLocalBranches } from './getLocalBranches';
 import { getMergeConflicts } from './getMergeConflicts';
@@ -433,6 +434,8 @@ export class GitService {
   public readonly getStashPatch = getStashPatch;
 
   public readonly getGraph = getGraph;
+
+  public readonly getVisualGraphData = getVisualGraphData;
 
   public readonly resolveExactBranchRef = resolveExactBranchRef;
 

@@ -1,0 +1,574 @@
+import * as vscode from 'vscode';
+import { GitCommand } from '../config/commands';
+import { VisualGraphData } from '../services/gitService/getVisualGraphData';
+
+export class GraphVisualView {
+  private static current: GraphVisualView | undefined;
+  private readonly panel: vscode.WebviewPanel;
+  private disposables: vscode.Disposable[] = [];
+
+  private constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly initialData: VisualGraphData
+  ) {
+    this.panel = vscode.window.createWebviewPanel(
+      GitCommand.GraphVisualView,
+      'Git Graph (Visual)',
+      vscode.ViewColumn.Active,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [extensionUri]
+      }
+    );
+
+    this.panel.webview.html = this.getWebviewContent(initialData);
+
+    this.disposables.push(
+      this.panel.onDidDispose(() => this.dispose()),
+      this.panel.webview.onDidReceiveMessage(async (message) => {
+        switch (message.type) {
+          case 'ready':
+            // Webview loaded, send initial data
+            await this.panel.webview.postMessage({
+              type: 'setData',
+              data: initialData
+            });
+            break;
+        }
+      })
+    );
+  }
+
+  public static show(extensionUri: vscode.Uri, data: VisualGraphData): void {
+    if (GraphVisualView.current) {
+      GraphVisualView.current.panel.reveal(vscode.ViewColumn.Active);
+      // Update with new data
+      GraphVisualView.current.panel.webview.postMessage({
+        type: 'setData',
+        data
+      });
+      return;
+    }
+
+    const panel = new GraphVisualView(extensionUri, data);
+    GraphVisualView.current = panel;
+  }
+
+  public dispose(): void {
+    GraphVisualView.current = undefined;
+    this.panel.dispose();
+    while (this.disposables.length) {
+      const disposable = this.disposables.pop();
+      if (disposable) {
+        disposable.dispose();
+      }
+    }
+  }
+
+  private getWebviewContent(data: VisualGraphData): string {
+    const nonce = getNonce();
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${this.panel.webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+  <title>Git Graph (Visual)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background: var(--vscode-editor-background);
+      color: var(--vscode-editor-foreground);
+      font-family: var(--vscode-font-family);
+      overflow: hidden;
+      height: 100vh;
+    }
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: var(--vscode-titleBar-activeBackground);
+      padding: 8px 16px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 1000;
+      border-bottom: 1px solid var(--vscode-panel-border);
+    }
+    .toolbar button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: none;
+      padding: 4px 12px;
+      cursor: pointer;
+      border-radius: 2px;
+      font-size: 13px;
+    }
+    .toolbar button:hover {
+      background: var(--vscode-button-hoverBackground);
+    }
+    .canvas-container {
+      position: absolute;
+      top: 40px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      cursor: grab;
+    }
+    .canvas-container.panning {
+      cursor: grabbing;
+    }
+    .canvas {
+      position: absolute;
+      transform-origin: 0 0;
+      transition: transform 0.1s ease-out;
+    }
+    .commit-node {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .commit-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--vscode-gitDecoration-modifiedResourceForeground, #007acc);
+      border: 2px solid var(--vscode-editor-background);
+      flex-shrink: 0;
+    }
+    .commit-dot.head {
+      background: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+    }
+    .commit-dot.branch {
+      background: var(--vscode-gitDecoration-deletedResourceForeground, #c72e0f);
+    }
+    .commit-info {
+      margin-left: 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .commit-message {
+      color: var(--vscode-editor-foreground);
+    }
+    .commit-meta {
+      color: var(--vscode-descriptionForeground);
+      margin-left: 8px;
+      font-size: 11px;
+    }
+    .ref-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      margin-left: 4px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .ref-badge.branch {
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+    }
+    .ref-badge.tag {
+      background: var(--vscode-gitDecoration-untrackedResourceForeground, #73c991);
+      color: var(--vscode-editor-background);
+    }
+    .tooltip {
+      position: fixed;
+      background: var(--vscode-editorHoverWidget-background);
+      border: 1px solid var(--vscode-editorHoverWidget-border);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      max-width: 400px;
+      z-index: 2000;
+      pointer-events: none;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .tooltip.visible {
+      display: block;
+    }
+    .tooltip-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .tooltip-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .tooltip-label {
+      color: var(--vscode-descriptionForeground);
+      min-width: 60px;
+    }
+    .context-menu {
+      position: fixed;
+      background: var(--vscode-menu-background);
+      border: 1px solid var(--vscode-menu-border);
+      border-radius: 4px;
+      padding: 4px 0;
+      min-width: 200px;
+      z-index: 3000;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .context-menu.visible {
+      display: block;
+    }
+    .context-menu-item {
+      padding: 6px 16px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .context-menu-item:hover {
+      background: var(--vscode-menu-selectionBackground);
+      color: var(--vscode-menu-selectionForeground);
+    }
+    .context-menu-separator {
+      height: 1px;
+      background: var(--vscode-menu-separatorBackground);
+      margin: 4px 0;
+    }
+    svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+    }
+    .edge-line {
+      stroke: var(--vscode-gitDecoration-modifiedResourceForeground, #007acc);
+      stroke-width: 2;
+      fill: none;
+      opacity: 0.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="zoom-in">Zoom In</button>
+    <button id="zoom-out">Zoom Out</button>
+    <button id="zoom-reset">Reset View</button>
+    <span style="margin-left: auto; color: var(--vscode-descriptionForeground); font-size: 12px;">
+      Scroll to pan, Ctrl/Cmd + Wheel or pinch to zoom, drag to pan
+    </span>
+  </div>
+  <div class="canvas-container" id="canvas-container">
+    <div class="canvas" id="canvas">
+      <svg id="edges-svg"></svg>
+      <div id="commits-container"></div>
+    </div>
+  </div>
+  <div class="tooltip" id="tooltip"></div>
+  <div class="context-menu" id="context-menu"></div>
+
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+    const data = ${JSON.stringify(data)};
+    
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+    
+    const canvas = document.getElementById('canvas');
+    const container = document.getElementById('canvas-container');
+    const tooltip = document.getElementById('tooltip');
+    const contextMenu = document.getElementById('context-menu');
+    const commitsContainer = document.getElementById('commits-container');
+    const edgesSvg = document.getElementById('edges-svg');
+    
+    // Layout constants
+    const COLUMN_WIDTH = 300;
+    const ROW_HEIGHT = 32;
+    const LEFT_PADDING = 100;
+    const TOP_PADDING = 40;
+    
+    function render() {
+      // Clear previous content
+      commitsContainer.innerHTML = '';
+      edgesSvg.innerHTML = '';
+      
+      const commits = data.commits;
+      if (commits.length === 0) {
+        commitsContainer.innerHTML = '<div style="padding: 20px; text-align: center;">No commits found</div>';
+        return;
+      }
+      
+      // Calculate canvas size
+      const maxColumn = Math.max(...commits.map(c => c.column));
+      const canvasWidth = (maxColumn + 1) * COLUMN_WIDTH + LEFT_PADDING + 200;
+      const canvasHeight = commits.length * ROW_HEIGHT + TOP_PADDING + 200;
+      
+      canvas.style.width = canvasWidth + 'px';
+      canvas.style.height = canvasHeight + 'px';
+      edgesSvg.setAttribute('width', canvasWidth);
+      edgesSvg.setAttribute('height', canvasHeight);
+      
+      // Build SHA to index map
+      const shaToIndex = new Map();
+      commits.forEach((commit, idx) => {
+        shaToIndex.set(commit.sha, idx);
+      });
+      
+      // Draw edges first
+      commits.forEach((commit, idx) => {
+        const x = LEFT_PADDING + commit.column * COLUMN_WIDTH + 6;
+        const y = TOP_PADDING + idx * ROW_HEIGHT + 6;
+        
+        commit.parents.forEach(parentSha => {
+          const parentIdx = shaToIndex.get(parentSha);
+          if (parentIdx !== undefined) {
+            const parent = commits[parentIdx];
+            const px = LEFT_PADDING + parent.column * COLUMN_WIDTH + 6;
+            const py = TOP_PADDING + parentIdx * ROW_HEIGHT + 6;
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midY = (y + py) / 2;
+            path.setAttribute('d', \`M \${x} \${y} L \${x} \${midY} L \${px} \${midY} L \${px} \${py}\`);
+            path.setAttribute('class', 'edge-line');
+            edgesSvg.appendChild(path);
+          }
+        });
+      });
+      
+      // Draw commits
+      commits.forEach((commit, idx) => {
+        const x = LEFT_PADDING + commit.column * COLUMN_WIDTH;
+        const y = TOP_PADDING + idx * ROW_HEIGHT;
+        
+        const node = document.createElement('div');
+        node.className = 'commit-node';
+        node.style.left = x + 'px';
+        node.style.top = y + 'px';
+        node.dataset.sha = commit.sha;
+        
+        const dot = document.createElement('div');
+        dot.className = 'commit-dot';
+        if (commit.isHead) {
+          dot.classList.add('head');
+        } else if (commit.branchNames.length > 0) {
+          dot.classList.add('branch');
+        }
+        
+        const info = document.createElement('div');
+        info.className = 'commit-info';
+        
+        // Ref badges
+        let badges = '';
+        commit.branchNames.forEach(branch => {
+          badges += \`<span class="ref-badge branch">\${escapeHtml(branch)}</span>\`;
+        });
+        commit.tagNames.forEach(tag => {
+          badges += \`<span class="ref-badge tag">\${escapeHtml(tag)}</span>\`;
+        });
+        
+        const message = \`<span class="commit-message">\${escapeHtml(commit.subject)}</span>\`;
+        const meta = \`<span class="commit-meta">\${commit.shortSha} \${escapeHtml(commit.author)}</span>\`;
+        
+        info.innerHTML = badges + message + meta;
+        
+        node.appendChild(dot);
+        node.appendChild(info);
+        
+        // Hover tooltip
+        node.addEventListener('mouseenter', (e) => {
+          showTooltip(e, commit);
+        });
+        node.addEventListener('mouseleave', () => {
+          hideTooltip();
+        });
+        
+        // Context menu
+        node.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showContextMenu(e, commit);
+        });
+        
+        commitsContainer.appendChild(node);
+      });
+      
+      updateTransform();
+    }
+    
+    function showTooltip(e, commit) {
+      const tooltip = document.getElementById('tooltip');
+      let html = \`<div class="tooltip-title">\${escapeHtml(commit.subject)}</div>\`;
+      html += \`<div class="tooltip-row"><span class="tooltip-label">SHA:</span><span>\${commit.shortSha}</span></div>\`;
+      html += \`<div class="tooltip-row"><span class="tooltip-label">Author:</span><span>\${escapeHtml(commit.author)}</span></div>\`;
+      html += \`<div class="tooltip-row"><span class="tooltip-label">Date:</span><span>\${new Date(commit.date).toLocaleString()}</span></div>\`;
+      if (commit.branchNames.length > 0) {
+        html += \`<div class="tooltip-row"><span class="tooltip-label">Branches:</span><span>\${escapeHtml(commit.branchNames.join(', '))}</span></div>\`;
+      }
+      if (commit.tagNames.length > 0) {
+        html += \`<div class="tooltip-row"><span class="tooltip-label">Tags:</span><span>\${escapeHtml(commit.tagNames.join(', '))}</span></div>\`;
+      }
+      
+      tooltip.innerHTML = html;
+      tooltip.classList.add('visible');
+      tooltip.style.left = (e.clientX + 12) + 'px';
+      tooltip.style.top = (e.clientY + 12) + 'px';
+    }
+    
+    function hideTooltip() {
+      tooltip.classList.remove('visible');
+    }
+    
+    function showContextMenu(e, commit) {
+      const menu = document.getElementById('context-menu');
+      menu.innerHTML = '';
+      
+      const actions = [
+        { label: 'Open Commit Details', action: 'openDetails', sha: commit.sha, subject: commit.subject },
+        { label: 'Copy Commit Hash', action: 'copyHash', sha: commit.sha },
+        { label: 'Checkout', action: 'checkout', sha: commit.sha },
+        { separator: true },
+        { label: 'Create Branch Here', action: 'createBranch', sha: commit.sha },
+        { label: 'Create Tag Here', action: 'createTag', sha: commit.sha },
+        { separator: true },
+        { label: 'Cherry-pick', action: 'cherryPick', sha: commit.sha },
+        { label: 'Revert', action: 'revert', sha: commit.sha }
+      ];
+      
+      actions.forEach(action => {
+        if (action.separator) {
+          const sep = document.createElement('div');
+          sep.className = 'context-menu-separator';
+          menu.appendChild(sep);
+        } else {
+          const item = document.createElement('div');
+          item.className = 'context-menu-item';
+          item.textContent = action.label;
+          item.addEventListener('click', () => {
+            vscode.postMessage({ type: 'action', ...action });
+            hideContextMenu();
+          });
+          menu.appendChild(item);
+        }
+      });
+      
+      menu.style.left = e.clientX + 'px';
+      menu.style.top = e.clientY + 'px';
+      menu.classList.add('visible');
+    }
+    
+    function hideContextMenu() {
+      contextMenu.classList.remove('visible');
+    }
+    
+    function updateTransform() {
+      canvas.style.transform = \`translate(\${translateX}px, \${translateY}px) scale(\${scale})\`;
+    }
+    
+    function zoom(delta, centerX, centerY) {
+      const oldScale = scale;
+      scale *= delta;
+      scale = Math.max(0.1, Math.min(5, scale));
+      
+      // Adjust translation to zoom towards center point
+      translateX = centerX - (centerX - translateX) * (scale / oldScale);
+      translateY = centerY - (centerY - translateY) * (scale / oldScale);
+      
+      updateTransform();
+    }
+    
+    // Event listeners
+    container.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl/Cmd + Wheel = zoom (also handles trackpad pinch)
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const rect = container.getBoundingClientRect();
+        const centerX = e.clientX - rect.left;
+        const centerY = e.clientY - rect.top;
+        zoom(delta, centerX, centerY);
+      } else {
+        // Normal wheel = vertical scroll (pan up/down)
+        e.preventDefault();
+        translateY -= e.deltaY;
+        updateTransform();
+      }
+    }, { passive: false });
+    
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // Left click
+        isPanning = true;
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        container.classList.add('panning');
+      }
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+      if (isPanning) {
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        updateTransform();
+      }
+    });
+    
+    document.addEventListener('mouseup', () => {
+      isPanning = false;
+      container.classList.remove('panning');
+    });
+    
+    document.addEventListener('click', (e) => {
+      if (!contextMenu.contains(e.target)) {
+        hideContextMenu();
+      }
+    });
+    
+    // Toolbar buttons
+    document.getElementById('zoom-in').addEventListener('click', () => {
+      const rect = container.getBoundingClientRect();
+      zoom(1.2, rect.width / 2, rect.height / 2);
+    });
+    
+    document.getElementById('zoom-out').addEventListener('click', () => {
+      const rect = container.getBoundingClientRect();
+      zoom(0.8, rect.width / 2, rect.height / 2);
+    });
+    
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    });
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // Initial render
+    render();
+    
+    // Notify extension that webview is ready
+    vscode.postMessage({ type: 'ready' });
+  </script>
+</body>
+</html>`;
+  }
+}
+
+function getNonce(): string {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}

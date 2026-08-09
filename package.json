@@ -648,6 +648,11 @@
         "command": "vscodeGitClient.textCompare.open",
         "title": "Compare Files...",
         "category": "Text Compare"
+      },
+      {
+        "command": "vscodeGitClient.graph.visualShow",
+        "title": "Show Graph",
+        "category": "VS Code Git Client"
       }
     ],
     "keybindings": [
