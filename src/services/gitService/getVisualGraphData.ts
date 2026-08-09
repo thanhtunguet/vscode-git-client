@@ -86,6 +86,9 @@ export async function getVisualGraphData(
         }
       } else if (trimmed.startsWith('refs/heads/')) {
         branchNames.push(trimmed.slice(11));
+      } else if (trimmed.startsWith('tag: refs/tags/')) {
+        // `--decorate=full` still prefixes tag decorations with `tag: `.
+        tagNames.push(trimmed.slice('tag: refs/tags/'.length));
       } else if (trimmed.startsWith('refs/tags/')) {
         tagNames.push(trimmed.slice(10));
       } else if (trimmed.startsWith('refs/remotes/')) {

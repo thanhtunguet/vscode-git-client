@@ -178,6 +178,15 @@ export class GraphVisualView {
       transform-origin: 0 0;
       transition: transform 0.1s ease-out;
     }
+    /* Share the canvas origin with the absolutely positioned commit nodes so
+       edge endpoints and dot centres use the same coordinate space. */
+    #edges-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: block;
+      pointer-events: none;
+    }
     .commit-node {
       position: absolute;
       display: flex;
@@ -217,6 +226,9 @@ export class GraphVisualView {
       color: var(--vscode-editor-foreground);
       cursor: pointer;
       user-select: none;
+    }
+    .ref-badge + .commit-message {
+      margin-left: 8px;
     }
     .commit-meta {
       color: var(--vscode-descriptionForeground);
@@ -317,6 +329,7 @@ export class GraphVisualView {
     <button id="zoom-in">Zoom In</button>
     <button id="zoom-out">Zoom Out</button>
     <button id="zoom-reset">Reset View</button>
+    <button id="refresh">Refresh</button>
     <span style="margin-left: auto; color: var(--vscode-descriptionForeground); font-size: 12px;">
       Scroll to pan, Ctrl/Cmd + Wheel or pinch to zoom, drag to pan
     </span>
@@ -332,7 +345,7 @@ export class GraphVisualView {
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    const data = ${JSON.stringify(data)};
+    let data = ${JSON.stringify(data)};
     
     let scale = 1;
     let translateX = 0;
@@ -353,6 +366,13 @@ export class GraphVisualView {
     const ROW_HEIGHT = 32;
     const LEFT_PADDING = 100;
     const TOP_PADDING = 40;
+    // Centre of .commit-dot relative to its .commit-node top-left corner.
+    // Horizontally: .commit-node padding-left + half the dot.
+    // Vertically: .commit-node is ROW_HEIGHT tall and centres the dot.
+    const NODE_PADDING_X = 4;
+    const DOT_SIZE = 12;
+    const DOT_CENTER_X = NODE_PADDING_X + DOT_SIZE / 2;
+    const DOT_CENTER_Y = ROW_HEIGHT / 2;
     
     function render() {
       // Clear previous content
@@ -383,15 +403,15 @@ export class GraphVisualView {
       
       // Draw edges first
       commits.forEach((commit, idx) => {
-        const x = LEFT_PADDING + commit.column * COLUMN_WIDTH + 6;
-        const y = TOP_PADDING + idx * ROW_HEIGHT + 6;
+        const x = LEFT_PADDING + commit.column * COLUMN_WIDTH + DOT_CENTER_X;
+        const y = TOP_PADDING + idx * ROW_HEIGHT + DOT_CENTER_Y;
         
         commit.parents.forEach(parentSha => {
           const parentIdx = shaToIndex.get(parentSha);
           if (parentIdx !== undefined) {
             const parent = commits[parentIdx];
-            const px = LEFT_PADDING + parent.column * COLUMN_WIDTH + 6;
-            const py = TOP_PADDING + parentIdx * ROW_HEIGHT + 6;
+            const px = LEFT_PADDING + parent.column * COLUMN_WIDTH + DOT_CENTER_X;
+            const py = TOP_PADDING + parentIdx * ROW_HEIGHT + DOT_CENTER_Y;
             
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             const midY = (y + py) / 2;
@@ -485,21 +505,9 @@ export class GraphVisualView {
       tooltip.classList.remove('visible');
     }
     
-    function showContextMenu(e, commit) {
+    function renderContextMenu(e, actions) {
       const menu = document.getElementById('context-menu');
       menu.innerHTML = '';
-      
-      const actions = [
-        { label: 'Open Commit Details', action: 'openDetails', sha: commit.sha, subject: commit.subject },
-        { label: 'Copy Commit Hash', action: 'copyHash', sha: commit.sha },
-        { label: 'Checkout', action: 'checkout', sha: commit.sha },
-        { separator: true },
-        { label: 'Create Branch Here', action: 'createBranch', sha: commit.sha },
-        { label: 'Create Tag Here', action: 'createTag', sha: commit.sha },
-        { separator: true },
-        { label: 'Cherry-pick', action: 'cherryPick', sha: commit.sha },
-        { label: 'Revert', action: 'revert', sha: commit.sha }
-      ];
       
       actions.forEach(action => {
         if (action.separator) {
@@ -511,7 +519,7 @@ export class GraphVisualView {
           item.className = 'context-menu-item';
           item.textContent = action.label;
           item.addEventListener('click', () => {
-            vscode.postMessage({ type: 'action', ...action });
+            vscode.postMessage(action.message ?? { type: 'action', ...action });
             hideContextMenu();
           });
           menu.appendChild(item);
@@ -521,6 +529,20 @@ export class GraphVisualView {
       menu.style.left = e.clientX + 'px';
       menu.style.top = e.clientY + 'px';
       menu.classList.add('visible');
+    }
+    
+    function showContextMenu(e, commit) {
+      renderContextMenu(e, [
+        { label: 'Open Commit Details', action: 'openDetails', sha: commit.sha, subject: commit.subject },
+        { label: 'Copy Commit Hash', action: 'copyHash', sha: commit.sha },
+        { label: 'Checkout', action: 'checkout', sha: commit.sha },
+        { separator: true },
+        { label: 'Create Branch Here', action: 'createBranch', sha: commit.sha },
+        { label: 'Create Tag Here', action: 'createTag', sha: commit.sha },
+        { separator: true },
+        { label: 'Cherry-pick', action: 'cherryPick', sha: commit.sha },
+        { label: 'Revert', action: 'revert', sha: commit.sha }
+      ]);
     }
     
     function hideContextMenu() {
@@ -589,6 +611,16 @@ export class GraphVisualView {
       }
     });
     
+    // Commit nodes stop propagation and show their own menu; everywhere else
+    // replaces the default webview Copy/Cut/Paste menu.
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      if (contextMenu.contains(e.target)) {
+        return;
+      }
+      renderContextMenu(e, [{ label: 'Refresh', message: { type: 'refresh' } }]);
+    });
+    
     // Toolbar buttons
     document.getElementById('zoom-in').addEventListener('click', () => {
       const rect = container.getBoundingClientRect();
@@ -605,6 +637,18 @@ export class GraphVisualView {
       translateX = 0;
       translateY = 0;
       updateTransform();
+    });
+    
+    document.getElementById('refresh').addEventListener('click', () => {
+      vscode.postMessage({ type: 'refresh' });
+    });
+    
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message && message.type === 'setData') {
+        data = message.data;
+        render();
+      }
     });
     
     function escapeHtml(text) {
