@@ -19,7 +19,9 @@ export async function handleGraphVisualShow(this: CommandController): Promise<vo
 
     this.logger.info(`Loaded ${data.commits.length} commits for visual graph`);
 
-    GraphVisualView.show(this.extensionUri, data);
+    GraphVisualView.show(this.extensionUri, data, async () => {
+      return await this.git.getVisualGraphData(500);
+    });
   } catch (error) {
     this.logger.error('Failed to show visual graph', error);
     throw error;

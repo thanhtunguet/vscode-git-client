@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { GitCommand } from '../config/commands';
 import { VisualGraphData } from '../services/gitService/getVisualGraphData';
+import { handleCommitAction } from './commitActions';
 
 export class GraphVisualView {
   private static current: GraphVisualView | undefined;
@@ -9,7 +10,8 @@ export class GraphVisualView {
 
   private constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly initialData: VisualGraphData
+    private initialData: VisualGraphData,
+    private onRefresh?: () => Promise<VisualGraphData>
   ) {
     this.panel = vscode.window.createWebviewPanel(
       GitCommand.GraphVisualView,
@@ -32,7 +34,30 @@ export class GraphVisualView {
             // Webview loaded, send initial data
             await this.panel.webview.postMessage({
               type: 'setData',
-              data: initialData
+              data: this.initialData
+            });
+            break;
+          case 'refresh':
+            await this.refresh();
+            break;
+          case 'action':
+          case 'commitAction':
+            await handleCommitAction({
+              type: 'commitAction',
+              action:
+                message.action === 'copyHash'
+                  ? 'copyCommitId'
+                  : message.action === 'checkout'
+                    ? 'checkoutRevision'
+                    : message.action === 'createBranch'
+                      ? 'newBranch'
+                      : message.action === 'createTag'
+                        ? 'newTag'
+                        : message.action === 'revert'
+                          ? 'revertCommit'
+                          : message.action,
+              sha: message.sha,
+              subject: message.subject
             });
             break;
         }
@@ -40,10 +65,32 @@ export class GraphVisualView {
     );
   }
 
-  public static show(extensionUri: vscode.Uri, data: VisualGraphData): void {
+  public async refresh(): Promise<void> {
+    if (this.onRefresh) {
+      try {
+        const newData = await this.onRefresh();
+        this.initialData = newData;
+        await this.panel.webview.postMessage({
+          type: 'setData',
+          data: newData
+        });
+      } catch (error) {
+        void vscode.window.showErrorMessage(
+          `VS Code Git Client: Failed to refresh visual graph - ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+  }
+
+  public static show(
+    extensionUri: vscode.Uri,
+    data: VisualGraphData,
+    onRefresh?: () => Promise<VisualGraphData>
+  ): void {
     if (GraphVisualView.current) {
+      GraphVisualView.current.onRefresh = onRefresh;
+      GraphVisualView.current.initialData = data;
       GraphVisualView.current.panel.reveal(vscode.ViewColumn.Active);
-      // Update with new data
       GraphVisualView.current.panel.webview.postMessage({
         type: 'setData',
         data
@@ -51,7 +98,7 @@ export class GraphVisualView {
       return;
     }
 
-    const panel = new GraphVisualView(extensionUri, data);
+    const panel = new GraphVisualView(extensionUri, data, onRefresh);
     GraphVisualView.current = panel;
   }
 
@@ -137,6 +184,12 @@ export class GraphVisualView {
       align-items: center;
       cursor: pointer;
       user-select: none;
+      height: 32px;
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    .commit-node:hover {
+      background: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
     }
     .commit-dot {
       width: 12px;
@@ -145,6 +198,7 @@ export class GraphVisualView {
       background: var(--vscode-gitDecoration-modifiedResourceForeground, #007acc);
       border: 2px solid var(--vscode-editor-background);
       flex-shrink: 0;
+      cursor: pointer;
     }
     .commit-dot.head {
       background: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
@@ -156,14 +210,20 @@ export class GraphVisualView {
       margin-left: 8px;
       font-size: 12px;
       white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
     }
     .commit-message {
       color: var(--vscode-editor-foreground);
+      cursor: pointer;
+      user-select: none;
     }
     .commit-meta {
       color: var(--vscode-descriptionForeground);
       margin-left: 8px;
       font-size: 11px;
+      cursor: pointer;
+      user-select: none;
     }
     .ref-badge {
       display: inline-block;
