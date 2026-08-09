@@ -816,7 +816,7 @@
       const graphCell = event.target && event.target.closest ? event.target.closest('.col-graph.copyable') : null;
       if (graphCell) {
         event.stopPropagation();
-        vscode.postMessage({ type: 'commitAction', action: 'copyRevisionNumber', sha });
+        vscode.postMessage({ type: 'commitAction', action: 'copyCommitId', sha });
         return;
       }
       const subject = row.getAttribute('data-subject') || '';

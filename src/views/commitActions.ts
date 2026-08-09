@@ -5,7 +5,6 @@ export type CommitAction =
   | 'openDetails'
   | 'copyCommitId'
   | 'copyCommitMessage'
-  | 'copyRevisionNumber'
   | 'createPatch'
   | 'cherryPick'
   | 'checkoutRevision'
@@ -104,17 +103,6 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       );
       return;
     }
-    case 'copyRevisionNumber': {
-      const orderedShas = message.reverseOrder ? [...normalizedShas].reverse() : normalizedShas;
-      await vscode.env.clipboard.writeText(orderedShas.join('\n'));
-      void vscode.window.setStatusBarMessage(
-        normalizedShas.length > 1
-          ? `Copied ${normalizedShas.length} revisions${message.reverseOrder ? ' (reversed)' : ''}`
-          : `Copied ${sha}`,
-        1500
-      );
-      return;
-    }
     case 'createPatch':
       if (message.isContinuous && normalizedShas.length > 1) {
         await vscode.commands.executeCommand(
@@ -128,11 +116,7 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       return;
     case 'cherryPick':
       if (message.isContinuous && normalizedShas.length > 1) {
-        await vscode.commands.executeCommand(
-          GitCommand.GraphCherryPick,
-          undefined,
-          normalizedShas
-        );
+        await vscode.commands.executeCommand(GitCommand.GraphCherryPick, undefined, normalizedShas);
         return;
       }
       await runForEachSha(GitCommand.GraphCherryPick);
@@ -151,11 +135,7 @@ export async function handleCommitAction(message: CommitActionMessage): Promise<
       return;
     case 'revertCommit':
       if (message.isContinuous && normalizedShas.length > 1) {
-        await vscode.commands.executeCommand(
-          GitCommand.GraphRevert,
-          undefined,
-          normalizedShas
-        );
+        await vscode.commands.executeCommand(GitCommand.GraphRevert, undefined, normalizedShas);
         return;
       }
       await runForEachSha(GitCommand.GraphRevert);

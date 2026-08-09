@@ -54,7 +54,7 @@ Common actions are available from right-click menus and the Branch Action Hub. L
 - Open branch or tag commits in `Git Graph`; the history query starts immediately from the selected ref while any background branch refresh continues separately.
 - Add a remote from the Remote section plus button, change/set remote URLs with immediate update feedback, or delete a remote from its context menu after confirmation.
 
-Tags appear with branches and support checkout, checkout-new-branch, copy revision, repository-at-revision, compare-with-current, patch preview, and graph navigation actions. The branch/tag search panel opens the appropriate branch or tag action menu when you click a result, uses tag-specific actions for tag rows, and can refresh its branch/tag list from the input-row button or webview context menu.
+Tags appear with branches and support checkout, checkout-new-branch, copy revision, repository-at-revision, compare-with-current, patch preview, create tag at current HEAD, and graph navigation actions. The branch/tag search panel opens the appropriate branch or tag action menu when you click a result, uses tag-specific actions for tag rows, and can refresh its branch/tag list from the input-row button or webview context menu.
 
 ### Inspect History And Commit Details
 
@@ -71,6 +71,8 @@ From a commit you can:
 - Cherry-pick, revert, create a patch, or compare with the current branch.
 - Start an interactive rebase from the selected commit.
 - Go to a parent or child commit.
+- Copy the commit ID or commit message to the clipboard.
+- Select a range of commits to open a merged Commit Details view or create a combined patch.
 - Multi-select commits with `Shift`, `Ctrl`, or `Cmd`; unsupported context-menu actions are disabled.
 
 `Commit Details` and expanded Git Graph file rows also support selected-file actions: `Open Diffs` (single or multi-select), branch-aware `Revert Selected Changes` / `Cherry-pick Selected Changes`, and `Create Patch` (save to file or copy to clipboard, then apply to the current working tree). In `Commit Details`, folder rows act as groups for every changed file inside them. The same selected-change actions are available when `Commit Details` is showing a merged/range diff from Filter Graph or Compare Branches.
@@ -136,6 +138,7 @@ For merge, rebase, cherry-pick, and revert flows, the extension keeps the operat
 - Conflict files open in VS Code merge editors when possible.
 - If files cannot be opened directly, the Source Control view is revealed as a fallback.
 - Status-bar actions expose `Continue`, `Skip`, and `Abort` when those actions apply.
+- Quick conflict resolution actions: Accept Ours, Accept Theirs, Accept Both.
 - Rebase progress is shown when Git exposes the current step.
 - Finalize commands guard against unresolved conflicts.
 
@@ -213,6 +216,8 @@ Supported editor workflows include:
 - Quick Git Actions command palette entry.
 - Push and pull previews with incoming/outgoing summaries.
 - Fetch `--prune`.
+- Force SSH pull for GitHub, GitLab, Bitbucket, or custom servers.
+- Fetch from specific remotes or all remotes at once.
 - Partial staging with `git add -p`.
 - File history and blame from the active editor file or Explorer context menu.
 - Guardrails for destructive operations.
@@ -221,24 +226,24 @@ Supported editor workflows include:
 
 ## Settings
 
-| Setting                                                | Default         | Description                                                                                                                                                                      |
-| ------------------------------------------------------ | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vscodeGitClient.gitPath`                              | `"git"`         | Git executable path                                                                                                                                                              |
-| `vscodeGitClient.commandTimeoutMs`                     | `15000`         | Timeout for Git commands in milliseconds                                                                                                                                         |
-| `vscodeGitClient.maxGraphCommits`                      | `200`           | Controls how many commits load per page in Git Graph views. Commits accumulate as you click "Load More..." in the tree view or scroll to the bottom of the Filter Graph webview. |
-| `vscodeGitClient.recentBranchesCount`                  | `3`             | Number of branches shown in the Recent group                                                                                                                                     |
-| `vscodeGitClient.gutterMarkers.enabled`                | `true`          | Show inline gutter markers for lines added, modified, or deleted vs `HEAD`                                                                                                       |
-| `vscodeGitClient.gutterMarkers.maxFileSizeKb`          | `512`           | Skip gutter marker computation for files larger than this size in KB                                                                                                             |
-| `vscodeGitClient.gutterMarkers.maxLineCount`           | `10000`         | Skip gutter marker computation for files with more lines than this value                                                                                                         |
-| `vscodeGitClient.performance.logGitCommands`           | `false`         | Log Git commands that take 500ms or longer to the extension output channel                                                                                                       |
-| `vscodeGitClient.performance.refreshDebounceMs`        | `250`           | Debounce delay for VS Code Git repository-state auto-refresh events                                                                                                              |
-| `vscodeGitClient.performance.saveRefreshDebounceMs`    | `150`           | Debounce delay for save-triggered working-tree refresh events                                                                                                                    |
-| `vscodeGitClient.compare.exportFormat`                 | `"csv"`         | Compare Branches export format: `csv` for two files, or `excel` for one `.xlsx` with two sheets                                                                                  |
+| Setting                                                | Default         | Description                                                                                                                                                                                       |
+| ------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vscodeGitClient.gitPath`                              | `"git"`         | Git executable path                                                                                                                                                                               |
+| `vscodeGitClient.commandTimeoutMs`                     | `15000`         | Timeout for Git commands in milliseconds                                                                                                                                                          |
+| `vscodeGitClient.maxGraphCommits`                      | `200`           | Controls how many commits load per page in Git Graph views. Commits accumulate as you click "Load More..." in the tree view or scroll to the bottom of the Filter Graph webview.                  |
+| `vscodeGitClient.recentBranchesCount`                  | `3`             | Number of branches shown in the Recent group                                                                                                                                                      |
+| `vscodeGitClient.gutterMarkers.enabled`                | `true`          | Show inline gutter markers for lines added, modified, or deleted vs `HEAD`                                                                                                                        |
+| `vscodeGitClient.gutterMarkers.maxFileSizeKb`          | `512`           | Skip gutter marker computation for files larger than this size in KB                                                                                                                              |
+| `vscodeGitClient.gutterMarkers.maxLineCount`           | `10000`         | Skip gutter marker computation for files with more lines than this value                                                                                                                          |
+| `vscodeGitClient.performance.logGitCommands`           | `false`         | Log Git commands that take 500ms or longer to the extension output channel                                                                                                                        |
+| `vscodeGitClient.performance.refreshDebounceMs`        | `250`           | Debounce delay for VS Code Git repository-state auto-refresh events                                                                                                                               |
+| `vscodeGitClient.performance.saveRefreshDebounceMs`    | `150`           | Debounce delay for save-triggered working-tree refresh events                                                                                                                                     |
+| `vscodeGitClient.compare.exportFormat`                 | `"csv"`         | Compare Branches export format: `csv` for two files, or `excel` for one `.xlsx` with two sheets                                                                                                   |
 | `vscodeGitClient.compare.listLayout`                   | `"vertical"`    | Initial Compare Branches List-mode pane layout (`vertical` stacked or `horizontal` side by side); only applies until the in-webview toggle is used, after which the choice persists per workspace |
-| `vscodeGitClient.compareWithRevision.defaultDirection` | `"forward"`     | Compare with Revision diff direction: `forward` opens working tree on the left and selected revision on the right; `reverse` swaps those sides                                   |
-| `vscodeGitClient.commitMessageTemplates`               | see below       | Reusable commit message templates with `{branch}`, `{ticket}`, `{scope}`, and `{cursor}` placeholders                                                                            |
-| `vscodeGitClient.commitMessageTicketPattern`           | `"[A-Z]+-\\d+"` | Regex used to extract a ticket id from the current branch name                                                                                                                   |
-| `vscodeGitClient.aiGenerateTimeoutMs`                  | `5000`          | Timeout for AI commit message generation in milliseconds                                                                                                                         |
+| `vscodeGitClient.compareWithRevision.defaultDirection` | `"forward"`     | Compare with Revision diff direction: `forward` opens working tree on the left and selected revision on the right; `reverse` swaps those sides                                                    |
+| `vscodeGitClient.commitMessageTemplates`               | see below       | Reusable commit message templates with `{branch}`, `{ticket}`, `{scope}`, and `{cursor}` placeholders                                                                                             |
+| `vscodeGitClient.commitMessageTicketPattern`           | `"[A-Z]+-\\d+"` | Regex used to extract a ticket id from the current branch name                                                                                                                                    |
+| `vscodeGitClient.aiGenerateTimeoutMs`                  | `5000`          | Timeout for AI commit message generation in milliseconds                                                                                                                                          |
 
 Existing `intelliGit.*` settings are still read as a legacy fallback when the matching `vscodeGitClient.*` setting has not been configured.
 

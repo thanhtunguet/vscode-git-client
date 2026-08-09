@@ -14,11 +14,10 @@ describe('commit context menu copy actions', () => {
 
   function captureClipboard(): { text(): string } {
     let copied = '';
-    (
-      vscode.env.clipboard as unknown as { writeText(value: string): Promise<void> }
-    ).writeText = async (value: string) => {
-      copied = value;
-    };
+    (vscode.env.clipboard as unknown as { writeText(value: string): Promise<void> }).writeText =
+      async (value: string) => {
+        copied = value;
+      };
     return { text: () => copied };
   }
 
@@ -65,12 +64,12 @@ describe('commit context menu copy actions', () => {
     assert.strictEqual(clipboard.text(), 'Second\nFirst');
   });
 
-  it('reverses revision numbers when reverseOrder is set', async () => {
+  it('copies only commit IDs from context menu (no duplicate copy actions)', async () => {
     const clipboard = captureClipboard();
 
     await handleCommitAction({
       type: 'commitAction',
-      action: 'copyRevisionNumber',
+      action: 'copyCommitId',
       sha: 'aaa',
       shas: ['aaa', 'bbb', 'ccc'],
       reverseOrder: true

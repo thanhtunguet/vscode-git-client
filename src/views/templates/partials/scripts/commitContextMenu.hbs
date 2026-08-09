@@ -11,7 +11,6 @@
         'openDetails',
         'copyCommitId',
         'copyCommitMessage',
-        'copyRevisionNumber',
         'createPatch',
         'cherryPick',
         'revertCommit'
@@ -20,7 +19,6 @@
         openDetails: 'Open Details',
         copyCommitId: 'Copy Commit Hash',
         copyCommitMessage: 'Copy Commit Message',
-        copyRevisionNumber: 'Copy Commit Hash',
         createPatch: 'Create Patch...',
         cherryPick: 'Cherry-Pick',
         revertCommit: 'Revert Commit'
@@ -29,7 +27,6 @@
         openDetails: (n) => `Open Details (${n} Commits)`,
         copyCommitId: (n) => `Copy Commit Hashes (${n})`,
         copyCommitMessage: (n) => `Copy Commit Messages (${n})`,
-        copyRevisionNumber: (n) => `Copy Commit Hashes (${n})`,
         createPatch: (n) => `Create Patch for ${n} Commits...`,
         cherryPick: (n) => `Cherry-Pick ${n} Commits`,
         revertCommit: (n) => `Revert ${n} Commits`
@@ -56,7 +53,7 @@
             // Ignore if not defined or in TDZ
           }
         }
-        const nonChangeActions = new Set(['copyCommitId', 'copyCommitMessage', 'copyRevisionNumber']);
+        const nonChangeActions = new Set(['copyCommitId', 'copyCommitMessage']);
 
         menuItems.forEach((item) => {
           const action = item.getAttribute('data-action') || '';
