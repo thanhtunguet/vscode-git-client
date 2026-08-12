@@ -458,8 +458,11 @@
         const centerY = e.clientY - rect.top;
         zoom(delta, centerX, centerY);
       } else {
-        // Normal wheel = vertical scroll (pan up/down)
+        // Normal wheel / two-finger trackpad = pan both axes.
+        // deltaX covers horizontal two-finger scrolling and Shift+Wheel.
+        // deltaY covers vertical two-finger scrolling.
         e.preventDefault();
+        translateX -= e.deltaX;
         translateY -= e.deltaY;
         updateTransform();
       }
