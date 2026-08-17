@@ -29,7 +29,6 @@
     "onCommand:vscodeGitClient.fileBlame.open",
     "onCommand:vscodeGitClient.scm.shelveResource",
     "onCommand:vscodeGitClient.scm.commitTemplate",
-    "onCommand:vscodeGitClient.scm.generateCommitMessage",
     "onCommand:vscodeGitClient.scm.amendFromInput",
     "onCommand:vscodeGitClient.textCompare.open"
   ],
@@ -466,10 +465,6 @@
         "title": "Insert Commit Template (SCM)"
       },
       {
-        "command": "vscodeGitClient.scm.generateCommitMessage",
-        "title": "Generate Commit Message (SCM)"
-      },
-      {
         "command": "vscodeGitClient.scm.amendFromInput",
         "title": "Amend Last Commit (SCM Input)"
       },
@@ -673,11 +668,6 @@
           "command": "vscodeGitClient.scm.commitTemplate",
           "when": "scmProvider == git",
           "group": "3_vscodeGitClientCommit@1"
-        },
-        {
-          "command": "vscodeGitClient.scm.generateCommitMessage",
-          "when": "scmProvider == git",
-          "group": "3_vscodeGitClientCommit@2"
         },
         {
           "command": "vscodeGitClient.scm.amendFromInput",
@@ -1315,12 +1305,6 @@
           "type": "string",
           "default": "[A-Z]+-\\d+",
           "description": "Regular expression used to extract a ticket id from the current branch name for the {ticket} placeholder."
-        },
-        "vscodeGitClient.aiGenerateTimeoutMs": {
-          "type": "number",
-          "default": 5000,
-          "minimum": 1000,
-          "description": "Timeout in milliseconds for AI commit message generation. Generation is cancelled if it exceeds this limit."
         }
       }
     }

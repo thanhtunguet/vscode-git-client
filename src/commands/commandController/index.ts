@@ -63,7 +63,6 @@ import { handleDiffOpen } from './handleDiffOpen';
 import { handleDirectoryTimelineOpen } from './handleDirectoryTimelineOpen';
 import { handleEditCommitMessage } from './handleEditCommitMessage';
 import { handleFileBlameOpen } from './handleFileBlameOpen';
-import { handleGenerateCommitMessage } from './handleGenerateCommitMessage';
 import { handleGitFetchPrune } from './handleGitFetchPrune';
 import { handleGitPullWithPreview } from './handleGitPullWithPreview';
 import { handleGitPushWithPreview } from './handleGitPushWithPreview';
@@ -373,8 +372,6 @@ export class CommandController {
   public readonly handleShelveResource = handleShelveResource;
 
   public readonly handleCommitTemplate = handleCommitTemplate;
-
-  public readonly handleGenerateCommitMessage = handleGenerateCommitMessage;
 
   public readonly handleScmAmendFromInput = handleScmAmendFromInput;
 

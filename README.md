@@ -22,7 +22,7 @@ The extension was first inspired by the IntelliJ Git client experience, then ada
 1. Open a folder that contains a Git repository.
 2. Open the extension's Activity Bar container.
 3. Use `Branches` for branch/tag operations, `Git Graph` for history, and `Commit Details` for changed files and diffs.
-4. Use VS Code Source Control for regular staging/commit work; the extension adds stash, commit-template, generated-message, amend, and shelve actions there.
+4. Use VS Code Source Control for regular staging/commit work; the extension adds stash, commit-template, amend, and shelve actions there.
 5. Use `Quick Git Actions` from the Command Palette when you know the action but not the view.
 
 ### Where Things Live
@@ -243,7 +243,6 @@ Supported editor workflows include:
 | `vscodeGitClient.compareWithRevision.defaultDirection` | `"forward"`     | Compare with Revision diff direction: `forward` opens working tree on the left and selected revision on the right; `reverse` swaps those sides                                                    |
 | `vscodeGitClient.commitMessageTemplates`               | see below       | Reusable commit message templates with `{branch}`, `{ticket}`, `{scope}`, and `{cursor}` placeholders                                                                                             |
 | `vscodeGitClient.commitMessageTicketPattern`           | `"[A-Z]+-\\d+"` | Regex used to extract a ticket id from the current branch name                                                                                                                                    |
-| `vscodeGitClient.aiGenerateTimeoutMs`                  | `5000`          | Timeout for AI commit message generation in milliseconds                                                                                                                                          |
 
 Existing `intelliGit.*` settings are still read as a legacy fallback when the matching `vscodeGitClient.*` setting has not been configured.
 
@@ -328,7 +327,7 @@ Key command IDs, not exhaustive:
 - `vscodeGitClient.operation.*` - abort, continue, skip
 - `vscodeGitClient.git.*` - pushWithPreview, pullWithPreview, fetchPrune
 - `vscodeGitClient.stage.*` / `vscodeGitClient.unstage.file` - stage and unstage actions
-- `vscodeGitClient.scm.*` - shelveResource, commitTemplate, generateCommitMessage, amendFromInput
+- `vscodeGitClient.scm.*` - shelveResource, commitTemplate, amendFromInput
 - `vscodeGitClient.worktree.*` - worktree actions
 - `vscodeGitClient.submodule.*` - submodule actions
 - `vscodeGitClient.fileBlame.open` - File blame
@@ -342,7 +341,6 @@ Legacy `intelliGit.*` command aliases are registered after activation so existin
 - Built-in VS Code merge and diff editors are used for reliability.
 - Git Graph is tree-based rendering with glyph hints, not a custom canvas DAG.
 - IntelliJ-style binary-patch behavior for selected-change patch workflows is not fully replicated yet; the current create/apply patch flow is optimized for text-based patches.
-- AI commit message generation requires a compatible language model provider and times out gracefully if unavailable.
 - PR and issue tracker integrations are intentionally outside the current scope.
 
 ## Feedback And Contributions

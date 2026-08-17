@@ -36,7 +36,6 @@ import { dropStash } from './dropStash';
 import { fetchPrune } from './fetchPrune';
 import { fileBlame } from './fileBlame';
 import { fileHistory } from './fileHistory';
-import { generateCommitMessage } from './generateCommitMessage';
 import { getBranches } from './getBranches';
 import { getChangedFiles } from './getChangedFiles';
 import { getChangedFilesFromVsCodeGit } from './getChangedFilesFromVsCodeGit';
@@ -533,8 +532,6 @@ export class GitService {
   public readonly commit = commit;
 
   public readonly getHeadCommitMessage = getHeadCommitMessage;
-
-  public readonly generateCommitMessage = generateCommitMessage;
 
   public readonly fileHistory = fileHistory;
 

@@ -232,8 +232,6 @@ export function register(this: CommandController, context: vscode.ExtensionConte
 
   register(GitCommand.ScmCommitTemplate, this.handleCommitTemplate.bind(this));
 
-  register(GitCommand.ScmGenerateCommitMessage, this.handleGenerateCommitMessage.bind(this));
-
   register(GitCommand.ScmAmendFromInput, this.handleScmAmendFromInput.bind(this));
 
   register(GitCommand.CompareWithRevision, this.handleCompareWithRevision.bind(this));

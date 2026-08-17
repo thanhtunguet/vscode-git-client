@@ -93,7 +93,6 @@ export enum GitCommand {
   UnstageFile = 'vscodeGitClient.unstage.file',
   CommitAmend = 'vscodeGitClient.commit.amend',
   ScmCommitTemplate = 'vscodeGitClient.scm.commitTemplate',
-  ScmGenerateCommitMessage = 'vscodeGitClient.scm.generateCommitMessage',
   ScmAmendFromInput = 'vscodeGitClient.scm.amendFromInput',
   CompareWithRevision = 'vscodeGitClient.compareWithRevision',
   DirectoryTimelineOpen = 'vscodeGitClient.directoryTimeline.open',
