@@ -26,6 +26,20 @@
       padding: var(--filter-input-padding, 6px 8px);
       outline: none;
     }
+    .filter-input[type="date"] {
+      color-scheme: light dark;
+      accent-color: var(--filter-input-color, var(--vscode-input-foreground));
+    }
+    .filter-input[type="date"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 0.9;
+      filter: brightness(0) saturate(100%) invert(1);
+    }
+    @media (prefers-color-scheme: light) {
+      .filter-input[type="date"]::-webkit-calendar-picker-indicator {
+        filter: none;
+      }
+    }
     .filter-input:focus {
       border-color: var(--accent);
     }
