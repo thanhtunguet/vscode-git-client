@@ -12,6 +12,8 @@ import { BranchRemoteNode } from './providers/branchTreeProvider';
 import { CommitFileDecorationProvider } from './providers/commitFileDecorationProvider';
 import { CommitFilesTreeProvider } from './providers/commitFilesTreeProvider';
 import { GraphCommitTreeItem, GraphTreeProvider } from './providers/graphTreeProvider';
+import { RecoveryController } from './recovery/recoveryController';
+import { RecoveryTreeProvider } from './recovery/recoveryTreeProvider';
 import { StashTreeProvider, StashTreeDragAndDropController } from './providers/stashTreeProvider';
 import { WorktreeTreeProvider } from './providers/worktreeTreeProvider';
 import { SubmoduleTreeProvider } from './providers/submoduleTreeProvider';
@@ -95,6 +97,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         createTreeViewSafely(GitCommand.BranchesView, { treeDataProvider: emptyProvider }, logger),
         createTreeViewSafely(GitCommand.StashesView, { treeDataProvider: emptyProvider }, logger),
         createTreeViewSafely(GitCommand.GraphView, { treeDataProvider: emptyProvider }, logger),
+        createTreeViewSafely(GitCommand.RecoveryView, { treeDataProvider: emptyProvider }, logger),
         createTreeViewSafely(
           GitCommand.CommitViewView,
           { treeDataProvider: emptyProvider },
@@ -167,6 +170,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
   const commitFilesProvider = new CommitFilesTreeProvider(gitService);
   const commitDecorationProvider = new CommitFileDecorationProvider(commitFilesProvider);
+  const recoveryProvider = new RecoveryTreeProvider(gitService, gitService.rootPath);
   const commitView = createTreeViewSafely(
     GitCommand.CommitViewView,
     {
@@ -176,6 +180,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
     logger
   );
+  const recoveryView = createTreeViewSafely(
+    GitCommand.RecoveryView,
+    {
+      treeDataProvider: recoveryProvider,
+      showCollapseAll: true
+    },
+    logger
+  );
+  if (recoveryView) {
+    recoveryView.description = gitService.rootPath;
+  }
   commitFilesProvider.attachView(commitView);
 
   const virtualProvider = new VirtualGitContentProvider();
@@ -191,6 +206,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   const gutterController = new GutterDecorationController(gitService, stateStore, logger);
+  const recoveryController = new RecoveryController(
+    gitService,
+    stateStore,
+    editor,
+    logger,
+    recoveryProvider
+  );
 
   if (graphView) {
     context.subscriptions.push(
@@ -228,6 +250,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       stashView,
       graphView,
       commitView,
+      recoveryView,
       commitDecorationProvider,
       worktreeView,
       submoduleView,
@@ -240,7 +263,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     editor,
     logger,
     commitFilesProvider,
-    context.extensionUri
+    context.extensionUri,
+    recoveryController
   );
   commandController.register(context);
   await registerBranchActionHubInGitCheckout(context, logger);

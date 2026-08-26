@@ -22,6 +22,24 @@ export function register(this: CommandController, context: vscode.ExtensionConte
 
   register(GitCommand.Refresh, this.handleRefresh.bind(this));
 
+  register(GitCommand.RecoveryOpen, this.handleRecoveryOpen.bind(this));
+
+  register(GitCommand.RecoveryRefreshReflog, this.handleRecoveryRefreshReflog.bind(this));
+
+  register(GitCommand.RecoveryToggleAllRefs, this.handleRecoveryToggleAllRefs.bind(this));
+
+  register(GitCommand.RecoveryScan, this.handleRecoveryScan.bind(this));
+
+  register(GitCommand.RecoveryCancelScan, this.handleRecoveryCancelScan.bind(this));
+
+  register(GitCommand.RecoveryPreview, this.handleRecoveryPreview.bind(this));
+
+  register(GitCommand.RecoveryCreateBranch, this.handleRecoveryCreateBranch.bind(this));
+
+  register(GitCommand.RecoveryOpenWorktree, this.handleRecoveryOpenWorktree.bind(this));
+
+  register(GitCommand.RecoveryCherryPick, this.handleRecoveryCherryPick.bind(this));
+
   register(GitCommand.CommitViewClose, this.handleCommitViewClose.bind(this));
 
   register(GitCommand.QuickActions, this.handleQuickActions.bind(this));

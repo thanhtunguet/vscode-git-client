@@ -70,6 +70,8 @@ import { getPatchForCommitRange } from './getPatchForCommitRange';
 import { getPrunableWorktrees } from './getPrunableWorktrees';
 import { getRemoteBranches } from './getRemoteBranches';
 import { getRemoteFetchUrls } from './getRemoteFetchUrls';
+import { getRecoveryReflogEntries } from './getRecoveryReflogEntries';
+import { getRecoverySnapshotFiles } from './getRecoverySnapshotFiles';
 import { getStagedFiles } from './getStagedFiles';
 import { getStashes } from './getStashes';
 import { getStashPatch } from './getStashPatch';
@@ -116,6 +118,7 @@ import { renameStash } from './renameStash';
 import { resetCurrent } from './resetCurrent';
 import { resolveConflictOurs } from './resolveConflictOurs';
 import { resolveConflictTheirs } from './resolveConflictTheirs';
+import { resolveRecoveryCommit } from './resolveRecoveryCommit';
 import { resolveExactBranchRef } from './resolveExactBranchRef';
 import { resolveRevisionToCommit } from './resolveRevisionToCommit';
 import { resolveShaFilter } from './resolveShaFilter';
@@ -147,6 +150,7 @@ import { unstashToWorkingTree } from './unstashToWorkingTree';
 import { untrackBranch } from './untrackBranch';
 import { updateAllSubmodules } from './updateAllSubmodules';
 import { updateSubmodule } from './updateSubmodule';
+import { validateBranchName } from './validateBranchName';
 
 export type { RepoChangeSet } from '../repositoryStateDiff';
 
@@ -290,6 +294,10 @@ export class GitService {
 
   public readonly getRemoteFetchUrls = getRemoteFetchUrls;
 
+  public readonly getRecoveryReflogEntries = getRecoveryReflogEntries;
+
+  public readonly getRecoverySnapshotFiles = getRecoverySnapshotFiles;
+
   public readonly getTagsBasic = getTagsBasic;
 
   public readonly mergeTagAvailability = mergeTagAvailability;
@@ -299,6 +307,8 @@ export class GitService {
   public readonly getTagAvailabilityByRemote = getTagAvailabilityByRemote;
 
   public readonly createBranch = createBranch;
+
+  public readonly validateBranchName = validateBranchName;
 
   public readonly createTag = createTag;
 
@@ -510,6 +520,8 @@ export class GitService {
    * invalid or git fails for any reason — this method never throws.
    */
   public readonly resolveRevisionToCommit = resolveRevisionToCommit;
+
+  public readonly resolveRecoveryCommit = resolveRecoveryCommit;
 
   public readonly stageFile = stageFile;
 

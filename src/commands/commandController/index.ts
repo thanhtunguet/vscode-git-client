@@ -8,6 +8,7 @@ import {
 } from '../../providers/commitFilesTreeProvider';
 import { GitService } from '../../services/gitService';
 import { StateStore } from '../../state/stateStore';
+import { RecoveryController } from '../../recovery/recoveryController';
 import { openBranchActionHub } from './openBranchActionHub';
 import { openCompareWorkflow } from './openCompareWorkflow';
 import { openQuickActions } from './openQuickActions';
@@ -103,6 +104,15 @@ import { handleOperationSkip } from './handleOperationSkip';
 import { handlePushAllUpToHere } from './handlePushAllUpToHere';
 import { handleQuickActions } from './handleQuickActions';
 import { handleRebaseConflict } from './handleRebaseConflict';
+import { handleRecoveryCancelScan } from './handleRecoveryCancelScan';
+import { handleRecoveryCherryPick } from './handleRecoveryCherryPick';
+import { handleRecoveryCreateBranch } from './handleRecoveryCreateBranch';
+import { handleRecoveryOpen } from './handleRecoveryOpen';
+import { handleRecoveryOpenWorktree } from './handleRecoveryOpenWorktree';
+import { handleRecoveryPreview } from './handleRecoveryPreview';
+import { handleRecoveryRefreshReflog } from './handleRecoveryRefreshReflog';
+import { handleRecoveryScan } from './handleRecoveryScan';
+import { handleRecoveryToggleAllRefs } from './handleRecoveryToggleAllRefs';
 import { handleRefresh } from './handleRefresh';
 import { handleRemoteAdd } from './handleRemoteAdd';
 import { handleRemoteDelete } from './handleRemoteDelete';
@@ -218,7 +228,8 @@ export class CommandController {
       clear(): Promise<void>;
       isShowingCommit(sha: string): boolean;
     },
-    public readonly extensionUri: vscode.Uri
+    public readonly extensionUri: vscode.Uri,
+    public readonly recovery?: RecoveryController
   ) {}
 
   public readonly register = register;
@@ -380,6 +391,24 @@ export class CommandController {
   public readonly handleCompareWithRevision = handleCompareWithRevision;
 
   public readonly handleResetCurrentToCommit = handleResetCurrentToCommit;
+
+  public readonly handleRecoveryOpen = handleRecoveryOpen;
+
+  public readonly handleRecoveryRefreshReflog = handleRecoveryRefreshReflog;
+
+  public readonly handleRecoveryToggleAllRefs = handleRecoveryToggleAllRefs;
+
+  public readonly handleRecoveryScan = handleRecoveryScan;
+
+  public readonly handleRecoveryCancelScan = handleRecoveryCancelScan;
+
+  public readonly handleRecoveryPreview = handleRecoveryPreview;
+
+  public readonly handleRecoveryCreateBranch = handleRecoveryCreateBranch;
+
+  public readonly handleRecoveryOpenWorktree = handleRecoveryOpenWorktree;
+
+  public readonly handleRecoveryCherryPick = handleRecoveryCherryPick;
 
   public readonly handleStashCreate = handleStashCreate;
 

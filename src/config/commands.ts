@@ -127,6 +127,15 @@ export enum GitCommand {
   SubmoduleDiffPointer = 'vscodeGitClient.submodule.diffPointer',
   SubmoduleStagePointerChange = 'vscodeGitClient.submodule.stagePointerChange',
   SubmoduleDeinit = 'vscodeGitClient.submodule.deinit',
+  RecoveryOpen = 'vscodeGitClient.recovery.open',
+  RecoveryRefreshReflog = 'vscodeGitClient.recovery.refreshReflog',
+  RecoveryToggleAllRefs = 'vscodeGitClient.recovery.toggleAllRefs',
+  RecoveryScan = 'vscodeGitClient.recovery.scan',
+  RecoveryCancelScan = 'vscodeGitClient.recovery.cancelScan',
+  RecoveryPreview = 'vscodeGitClient.recovery.preview',
+  RecoveryCreateBranch = 'vscodeGitClient.recovery.createBranch',
+  RecoveryOpenWorktree = 'vscodeGitClient.recovery.openWorktree',
+  RecoveryCherryPick = 'vscodeGitClient.recovery.cherryPick',
   TextCompareOpen = 'vscodeGitClient.textCompare.open',
   // View IDs
   BranchesView = 'vscodeGitClient.branches',
@@ -135,6 +144,7 @@ export enum GitCommand {
   CommitViewView = 'vscodeGitClient.commitView',
   WorktreesView = 'vscodeGitClient.worktrees',
   SubmodulesView = 'vscodeGitClient.submodules',
+  RecoveryView = 'vscodeGitClient.recovery',
   // Webview panel IDs
   CommitList = 'vscodeGitClient.commitList',
   BranchSearchView = 'vscodeGitClient.branchSearch',

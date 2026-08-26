@@ -2,7 +2,7 @@
   "name": "vscode-git-client",
   "displayName": "VS Code Git Client",
   "description": "A powerful Git client for VS Code with branch tree, stashes, graph, submodules, worktrees, merge/diff/compare workflows.",
-  "version": "1.19.3",
+  "version": "1.20.0",
   "publisher": "thanhtunguet",
   "icon": "media/vscodegitclient.png",
   "main": "./dist/extension.js",
@@ -21,8 +21,10 @@
   "activationEvents": [
     "onView:vscodeGitClient.stashes",
     "onView:vscodeGitClient.branches",
+    "onView:vscodeGitClient.recovery",
     "onCommand:vscodeGitClient.quickActions",
     "onCommand:vscodeGitClient.branch.actionHub",
+    "onCommand:vscodeGitClient.recovery.open",
     "onCommand:vscodeGitClient.compareWithRevision",
     "onCommand:vscodeGitClient.compareWithRevision.swapDirection",
     "onCommand:vscodeGitClient.directoryTimeline.open",
@@ -86,6 +88,13 @@
           "icon": "media/icon-graph.svg"
         },
         {
+          "id": "vscodeGitClient.recovery",
+          "name": "Recovery Center",
+          "contextualTitle": "Recover lost commits and inspect reflog timeline",
+          "visibility": "visible",
+          "icon": "media/icon-graph.svg"
+        },
+        {
           "id": "vscodeGitClient.worktrees",
           "name": "Worktrees",
           "contextualTitle": "Manage git worktrees for parallel development",
@@ -117,6 +126,42 @@
       {
         "command": "vscodeGitClient.refresh",
         "title": "Refresh"
+      },
+      {
+        "command": "vscodeGitClient.recovery.open",
+        "title": "Open Recovery Center"
+      },
+      {
+        "command": "vscodeGitClient.recovery.refreshReflog",
+        "title": "Refresh Reflog"
+      },
+      {
+        "command": "vscodeGitClient.recovery.toggleAllRefs",
+        "title": "Toggle HEAD / All Refs"
+      },
+      {
+        "command": "vscodeGitClient.recovery.scan",
+        "title": "Scan Repository"
+      },
+      {
+        "command": "vscodeGitClient.recovery.cancelScan",
+        "title": "Cancel Scan"
+      },
+      {
+        "command": "vscodeGitClient.recovery.preview",
+        "title": "Preview Recovery Snapshot"
+      },
+      {
+        "command": "vscodeGitClient.recovery.createBranch",
+        "title": "Create Recovery Branch"
+      },
+      {
+        "command": "vscodeGitClient.recovery.openWorktree",
+        "title": "Open in Recovery Worktree"
+      },
+      {
+        "command": "vscodeGitClient.recovery.cherryPick",
+        "title": "Cherry-pick Recovery Commit"
       },
       {
         "command": "vscodeGitClient.quickActions",
@@ -660,6 +705,11 @@
     "menus": {
       "scm/title": [
         {
+          "command": "vscodeGitClient.recovery.open",
+          "when": "scmProvider == git",
+          "group": "2_main@4.8"
+        },
+        {
           "command": "vscodeGitClient.branch.actionHub",
           "when": "scmProvider == git",
           "group": "2_main@4.9"
@@ -739,6 +789,16 @@
           "command": "vscodeGitClient.refresh",
           "when": "view == vscodeGitClient.branches || view == vscodeGitClient.stashes || view == vscodeGitClient.graph",
           "group": "refresh@1"
+        },
+        {
+          "command": "vscodeGitClient.recovery.refreshReflog",
+          "when": "view == vscodeGitClient.recovery",
+          "group": "refresh@1"
+        },
+        {
+          "command": "vscodeGitClient.recovery.toggleAllRefs",
+          "when": "view == vscodeGitClient.recovery",
+          "group": "navigation@7"
         },
         {
           "command": "vscodeGitClient.worktree.refresh",
@@ -880,8 +940,48 @@
           "group": "navigation"
         },
         {
+          "command": "vscodeGitClient.recovery.refreshReflog",
+          "when": "view == vscodeGitClient.recovery && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "vscodeGitClient.recovery.scan",
+          "when": "view == vscodeGitClient.recovery && !viewItem",
+          "group": "navigation@1"
+        },
+        {
           "command": "vscodeGitClient.worktree.refresh",
           "when": "view == vscodeGitClient.worktrees && !viewItem",
+          "group": "navigation"
+        },
+        {
+          "command": "vscodeGitClient.recovery.preview",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryReflogEntry",
+          "group": "navigation"
+        },
+        {
+          "command": "vscodeGitClient.recovery.createBranch",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryReflogEntry",
+          "group": "navigation@1"
+        },
+        {
+          "command": "vscodeGitClient.recovery.openWorktree",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryReflogEntry",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vscodeGitClient.recovery.cherryPick",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryReflogEntry",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vscodeGitClient.recovery.preview",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryReflogFile",
+          "group": "navigation"
+        },
+        {
+          "command": "vscodeGitClient.recovery.scan",
+          "when": "view == vscodeGitClient.recovery && viewItem == recoveryScanPlaceholder",
           "group": "navigation"
         },
         {
@@ -1164,6 +1264,38 @@
         },
         {
           "command": "vscodeGitClient.workingTreeCompare.openFileDiff",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.refreshReflog",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.toggleAllRefs",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.scan",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.cancelScan",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.preview",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.createBranch",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.openWorktree",
+          "when": "false"
+        },
+        {
+          "command": "vscodeGitClient.recovery.cherryPick",
           "when": "false"
         }
       ]

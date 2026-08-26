@@ -4,7 +4,7 @@ import { getConfigValue } from '../configuration';
 import { CommitFilesTreeProvider } from '../providers/commitFilesTreeProvider';
 import { GitService } from '../services/gitService';
 import { StateStore } from '../state/stateStore';
-import { CompareResult } from '../types';
+import { CommitFileChange, CompareResult } from '../types';
 import { CompareCommitRangeSelection, CompareView } from '../views/compareView';
 import { VirtualGitContentProvider } from './virtualGitContentProvider';
 
@@ -15,6 +15,21 @@ const WORKTREE_REF = 'WORKTREE';
 type ComparableDiffSide =
   { kind: 'ref'; ref: string; relativePath: string } | { kind: 'worktree'; relativePath: string };
 type CompareWithRevisionDirection = 'forward' | 'reverse';
+
+export function getRecoveryDiffSides(file: CommitFileChange): {
+  leftPath: string;
+  rightPath: string;
+  leftEmpty: boolean;
+  rightEmpty: boolean;
+} {
+  const statusKind = file.status.trim().toUpperCase()[0];
+  return {
+    leftPath: (statusKind === 'R' || statusKind === 'C') && file.oldPath ? file.oldPath : file.path,
+    rightPath: file.path,
+    leftEmpty: statusKind === 'A',
+    rightEmpty: statusKind === 'D'
+  };
+}
 
 export class EditorOrchestrator {
   private compareView: CompareView | undefined;
@@ -44,6 +59,42 @@ export class EditorOrchestrator {
       preview: false,
       preserveFocus: false
     });
+  }
+
+  async openRecoveryFileDiff(options: {
+    fromRef: string;
+    toRef: string;
+    file: CommitFileChange;
+    title?: string;
+  }): Promise<void> {
+    const { leftPath, rightPath, leftEmpty, rightEmpty } = getRecoveryDiffSides(options.file);
+    const leftContent = leftEmpty ? '' : await this.readContentOrEmpty(options.fromRef, leftPath);
+    const rightContent = rightEmpty ? '' : await this.readContentOrEmpty(options.toRef, rightPath);
+
+    const leftNormalized = leftPath.replaceAll(path.sep, '/');
+    const rightNormalized = rightPath.replaceAll(path.sep, '/');
+    const leftUri = withVirtualGitMetadata(
+      vscode.Uri.parse(
+        `${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(options.fromRef)}/${leftNormalized}`
+      ),
+      { kind: 'ref', ref: options.fromRef, relativePath: leftNormalized }
+    );
+    const rightUri = withVirtualGitMetadata(
+      vscode.Uri.parse(
+        `${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(options.toRef)}/${rightNormalized}`
+      ),
+      { kind: 'ref', ref: options.toRef, relativePath: rightNormalized }
+    );
+    this.contentProvider.setContent(leftUri, leftContent);
+    this.contentProvider.setContent(rightUri, rightContent);
+
+    await vscode.commands.executeCommand(
+      'vscode.diff',
+      leftUri,
+      rightUri,
+      options.title ?? `${options.fromRef} ↔ ${options.toRef} · ${rightPath}`,
+      { preview: false, preserveFocus: false }
+    );
   }
 
   async openDiffForUri(uri: vscode.Uri, title: string): Promise<void> {
