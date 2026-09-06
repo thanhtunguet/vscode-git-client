@@ -170,7 +170,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
   const commitFilesProvider = new CommitFilesTreeProvider(gitService);
   const commitDecorationProvider = new CommitFileDecorationProvider(commitFilesProvider);
-  const recoveryProvider = new RecoveryTreeProvider(gitService, gitService.rootPath);
+  const recoveryProvider = new RecoveryTreeProvider(gitService);
   const commitView = createTreeViewSafely(
     GitCommand.CommitViewView,
     {
@@ -277,6 +277,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   attachSparseRepositoryViewAutoCollapse(context, stateStore, logger);
 
   stateStore.attachAutoRefresh(context);
+  let repositorySelection = Promise.resolve();
+  void gitService
+    .onRepositorySelected((rootUri) => {
+      repositorySelection = repositorySelection
+        .then(async () => {
+          if (gitService.samePath(gitService.rootPath, rootUri.fsPath)) {
+            return;
+          }
+          editor.resetRepositoryState();
+          await commitFilesProvider.clear();
+          recoveryProvider.reset();
+          if (!(await stateStore.switchRepository(rootUri))) {
+            return;
+          }
+          if (recoveryView) {
+            recoveryView.description = gitService.rootPath;
+          }
+          logger.info(`Switched active repository to ${gitService.rootPath}.`);
+        })
+        .catch((error) => logger.warn(`Failed to switch active repository: ${String(error)}`));
+    })
+    .then((disposable) => {
+      if (disposable) {
+        context.subscriptions.push(disposable);
+      }
+    });
   attachOperationStatusBarActions(context, stateStore);
 
   context.subscriptions.push(

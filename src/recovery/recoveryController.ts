@@ -248,14 +248,9 @@ export class RecoveryController {
   }
 
   private async ensureRepositoryScope(action: string): Promise<boolean> {
-    const api = await this.git.getVsCodeGitApi();
-    const repositoryRoots = new Set(
-      api?.repositories.map((repository) => repository.rootUri.fsPath) ?? []
-    );
-    const workspaceFolderCount = vscode.workspace.workspaceFolders?.length ?? 0;
-    if (repositoryRoots.size > 1 || (!api && workspaceFolderCount > 1)) {
+    if (!(await this.git.isRepo())) {
       void vscode.window.showWarningMessage(
-        `Cannot ${action}: Recovery Center currently supports only single-repository workspaces. Open ${this.git.rootPath} in its own VS Code window to continue.`
+        `Cannot ${action}: the selected repository is no longer available.`
       );
       return false;
     }

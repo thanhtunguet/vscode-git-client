@@ -98,6 +98,7 @@ import { mergeIntoCurrent } from './mergeIntoCurrent';
 import { mergeTagAvailability } from './mergeTagAvailability';
 import { onRepositoryAvailable } from './onRepositoryAvailable';
 import { onRepositoryClosed } from './onRepositoryClosed';
+import { onRepositorySelected } from './onRepositorySelected';
 import { onRepositoryStateChange } from './onRepositoryStateChange';
 import { openMergeEditor } from './openMergeEditor';
 import { parseBranchLines } from './parseBranchLines';
@@ -207,6 +208,7 @@ interface VsCodeGitApi {
 
 export class GitService {
   public _gitRootCache: string | undefined;
+  private _activeRootPath: string | undefined;
   public _vscodeGitApi: Promise<VsCodeGitApi | undefined> | undefined;
   public _vscodeGitRepository: VsCodeGitRepository | undefined;
   public readonly gitCommandQueue = new GitCommandQueue(process.platform === 'win32' ? 2 : 4);
@@ -257,7 +259,7 @@ export class GitService {
   ) {}
 
   get rootPath(): string {
-    return this.context.rootPath;
+    return this._activeRootPath ?? this.context.rootPath;
   }
 
   /**
@@ -266,7 +268,20 @@ export class GitService {
    * All path arguments passed to git commands must be relative to this path.
    */
   get gitRoot(): string {
-    return this._gitRootCache ?? this.context.rootPath;
+    return this._gitRootCache ?? this.rootPath;
+  }
+
+  /** Re-point all Git operations at the repository selected in VS Code SCM. */
+  selectRepository(rootUri: vscode.Uri): boolean {
+    if (this.samePath(this.rootPath, rootUri.fsPath)) {
+      return false;
+    }
+    this._activeRootPath = rootUri.fsPath;
+    this._gitRootCache = rootUri.fsPath;
+    this._gitDirCache = undefined;
+    this._submoduleService = undefined;
+    this._vscodeGitRepository = undefined;
+    return true;
   }
 
   public readonly getGitRoot = getGitRoot;
@@ -403,6 +418,9 @@ export class GitService {
    * subsequent {@link onRepositoryAvailable} can re-attach.
    */
   public readonly onRepositoryClosed = onRepositoryClosed;
+
+  /** Observe subsequent selections in VS Code's built-in Git repository picker. */
+  public readonly onRepositorySelected = onRepositorySelected;
 
   public readonly toAbsoluteRepoPath = toAbsoluteRepoPath;
 

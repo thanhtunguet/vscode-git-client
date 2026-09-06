@@ -15,6 +15,7 @@ type Waiter = {
 export class RefreshScheduler {
   private readonly pendingScopes = new Set<RefreshScope>();
   private waiters: Waiter[] = [];
+  private idleWaiters: Array<() => void> = [];
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running = false;
 
@@ -42,6 +43,14 @@ export class RefreshScheduler {
     return promise;
   }
 
+  /** Resolves after all queued and running refreshes have finished. */
+  waitForIdle(): Promise<void> {
+    if (!this.timer && !this.running && this.pendingScopes.size === 0) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => this.idleWaiters.push(resolve));
+  }
+
   private async drain(): Promise<void> {
     if (this.running) {
       return;
@@ -63,5 +72,15 @@ export class RefreshScheduler {
         this.running = false;
       }
     }
+    this.resolveIdleWaiters();
+  }
+
+  private resolveIdleWaiters(): void {
+    if (this.timer || this.running || this.pendingScopes.size > 0) {
+      return;
+    }
+    const waiters = this.idleWaiters;
+    this.idleWaiters = [];
+    waiters.forEach((resolve) => resolve());
   }
 }

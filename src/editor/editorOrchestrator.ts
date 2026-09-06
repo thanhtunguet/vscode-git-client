@@ -379,6 +379,11 @@ export class EditorOrchestrator {
     await vscode.window.showTextDocument(document, { preview: false, preserveFocus: false });
   }
 
+  /** Close comparison data that belongs to the previously active repository. */
+  resetRepositoryState(): void {
+    this.compareView?.dispose();
+  }
+
   private ensureCompareView(): CompareView {
     if (!this.compareView) {
       this.compareView = new CompareView(

@@ -29,7 +29,7 @@ describe('RecoveryTreeProvider', () => {
       getCurrentHeadSha: async () => 'f'.repeat(40),
       getRecoverySnapshotFiles: async () => []
     };
-    const provider = new RecoveryTreeProvider(git as never, '/repo');
+    const provider = new RecoveryTreeProvider(git as never);
 
     await provider.refreshReflog();
     await provider.loadMoreReflog();
@@ -51,7 +51,7 @@ describe('RecoveryTreeProvider', () => {
         return [{ status: 'M', path: 'src/index.ts' }];
       }
     };
-    const provider = new RecoveryTreeProvider(git as never, '/repo');
+    const provider = new RecoveryTreeProvider(git as never);
     const entry = makeEntry(0);
 
     await provider.getEntryFiles(entry);

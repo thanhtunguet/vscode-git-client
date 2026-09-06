@@ -15,6 +15,10 @@ interface VsCodeGitExtension {
 }
 interface VsCodeGitRepository {
   readonly rootUri: vscode.Uri;
+  readonly ui?: {
+    readonly selected: boolean;
+    readonly onDidChange?: vscode.Event<void>;
+  };
   readonly state: {
     readonly HEAD?: {
       readonly name?: string;
@@ -54,17 +58,17 @@ interface VsCodeGitChange {
 
 export async function getVsCodeGitApi(this: GitService): Promise<VsCodeGitApi | undefined> {
   if (!this._vscodeGitApi) {
-        this._vscodeGitApi = (async () => {
-          const extension = vscode.extensions.getExtension<VsCodeGitExtension>('vscode.git');
-          if (!extension) {
-            return undefined;
-          }
-          const gitExtension = extension.isActive ? extension.exports : await extension.activate();
-          if (!gitExtension.enabled) {
-            return undefined;
-          }
-          return gitExtension.getAPI(1);
-        })();
+    this._vscodeGitApi = (async () => {
+      const extension = vscode.extensions.getExtension<VsCodeGitExtension>('vscode.git');
+      if (!extension) {
+        return undefined;
       }
-      return this._vscodeGitApi;
+      const gitExtension = extension.isActive ? extension.exports : await extension.activate();
+      if (!gitExtension.enabled) {
+        return undefined;
+      }
+      return gitExtension.getAPI(1);
+    })();
+  }
+  return this._vscodeGitApi;
 }

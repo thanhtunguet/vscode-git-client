@@ -19,7 +19,7 @@ const entry: RecoveryReflogEntry = {
 
 function makeController(git: Record<string, unknown>): RecoveryController {
   return new RecoveryController(
-    { rootPath: '/repo-a', ...git } as never,
+    { rootPath: '/repo-a', isRepo: async () => true, ...git } as never,
     {} as never,
     {} as never,
     { info: () => {} } as never,
@@ -28,24 +28,16 @@ function makeController(git: Record<string, unknown>): RecoveryController {
 }
 
 describe('RecoveryController safety guards', () => {
-  it('blocks opening Recovery Center when more than one Git repository is active', async () => {
+  it('opens Recovery Center for the selected repository when multiple repositories are active', async () => {
     const originalExecuteCommand = vscode.commands.executeCommand;
     const originalShowWarningMessage = vscode.window.showWarningMessage;
     let focusCalled = false;
-    let warning = '';
     (
       vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }
     ).executeCommand = (async <T>() => {
       focusCalled = true;
       return undefined as T;
     }) as typeof vscode.commands.executeCommand;
-    (
-      vscode.window as unknown as { showWarningMessage: typeof vscode.window.showWarningMessage }
-    ).showWarningMessage = async (message: string) => {
-      warning = message;
-      return undefined;
-    };
-
     try {
       const controller = makeController({
         getVsCodeGitApi: async () => ({
@@ -58,8 +50,7 @@ describe('RecoveryController safety guards', () => {
 
       await controller.open();
 
-      assert.strictEqual(focusCalled, false);
-      assert.match(warning, /single-repository workspaces/);
+      assert.strictEqual(focusCalled, true);
     } finally {
       (
         vscode.commands as unknown as { executeCommand: typeof vscode.commands.executeCommand }

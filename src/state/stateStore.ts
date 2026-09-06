@@ -96,6 +96,9 @@ export class StateStore {
   private readonly emitter = new vscode.EventEmitter<void>();
   readonly onDidChange = this.emitter.event;
   private _changesRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  private autoRefreshContext: vscode.ExtensionContext | undefined;
+  private autoRefreshDisposables: vscode.Disposable[] = [];
+  private autoRefreshGeneration = 0;
   private readonly visibleScopes = new Set<RefreshScope>();
   private readonly refreshScheduler = new RefreshScheduler((scopes) => this.executeRefresh(scopes));
 
@@ -194,6 +197,29 @@ export class StateStore {
     return this.refreshScheduler.request(scopes, options);
   }
 
+  /**
+   * Switch after old refreshes finish so their results cannot be shown for the
+   * newly selected repository.
+   */
+  async switchRepository(rootUri: vscode.Uri): Promise<boolean> {
+    await this.refreshScheduler.waitForIdle();
+    if (!this.git.selectRepository(rootUri)) {
+      return false;
+    }
+    if (this._changesRefreshTimer) {
+      clearTimeout(this._changesRefreshTimer);
+      this._changesRefreshTimer = undefined;
+    }
+    this.clearRepositoryState();
+    this.disposeAutoRefresh();
+    if (this.autoRefreshContext) {
+      this.attachAutoRefresh(this.autoRefreshContext);
+    }
+    this.emitter.fire();
+    await this.requestRefresh(['full']);
+    return true;
+  }
+
   getSaveRefreshDebounceMs(): number {
     return getConfigValue<number>('performance.saveRefreshDebounceMs', 150);
   }
@@ -237,19 +263,7 @@ export class StateStore {
         this._worktreesLoaded ||
         this._submodulesLoaded;
 
-      this._branches = [];
-      this._tags = [];
-      this._stashes = [];
-      this._changes = [];
-      this._graph = [];
-      this._graphHasMore = false;
-      this._compareResult = undefined;
-      this._operationState = { kind: 'none' };
-      this._conflicts = [];
-      this._worktrees = [];
-      this._submodules = [];
-      this._worktreesLoaded = false;
-      this._submodulesLoaded = false;
+      this.clearRepositoryState();
       if (hadState) {
         this.emitter.fire();
       }
@@ -460,7 +474,19 @@ export class StateStore {
   }
 
   attachAutoRefresh(context: vscode.ExtensionContext): void {
+    this.autoRefreshContext = context;
+    this.disposeAutoRefresh();
+    const generation = ++this.autoRefreshGeneration;
     let watchersRegistered = false;
+
+    const add = (disposable: vscode.Disposable): void => {
+      if (generation !== this.autoRefreshGeneration) {
+        disposable.dispose();
+        return;
+      }
+      this.autoRefreshDisposables.push(disposable);
+      context.subscriptions.push(disposable);
+    };
 
     const handleStateChange = (changeSet: RepoChangeSet): void => {
       const scopes = mapChangeSetToScopes(changeSet);
@@ -473,7 +499,7 @@ export class StateStore {
     const attachStateListener = async (): Promise<void> => {
       const disposable = await this.git.onRepositoryStateChange(handleStateChange);
       if (disposable) {
-        context.subscriptions.push(disposable);
+        add(disposable);
       }
     };
 
@@ -511,7 +537,7 @@ export class StateStore {
         return watcher;
       };
 
-      context.subscriptions.push(
+      [
         watch(gitDirUri, 'refs/stash', ['stashes']),
         watch(gitDirUri, 'logs/refs/stash', ['stashes']),
         watch(gitDirUri, 'worktrees/**', ['worktrees']),
@@ -520,7 +546,7 @@ export class StateStore {
         watch(gitDirUri, '{MERGE_HEAD,REBASE_HEAD,CHERRY_PICK_HEAD,REVERT_HEAD}', ['changes']),
         watch(gitDirUri, 'rebase-merge/**', ['changes']),
         watch(gitDirUri, 'rebase-apply/**', ['changes'])
-      );
+      ].forEach(add);
     };
 
     // Attach immediately if the repo is already open; re-attach on late open.
@@ -531,7 +557,7 @@ export class StateStore {
       })
       .then((disposable) => {
         if (disposable) {
-          context.subscriptions.push(disposable);
+          add(disposable);
         }
       });
 
@@ -542,9 +568,37 @@ export class StateStore {
       })
       .then((disposable) => {
         if (disposable) {
-          context.subscriptions.push(disposable);
+          add(disposable);
         }
       });
+  }
+
+  private disposeAutoRefresh(): void {
+    this.autoRefreshGeneration += 1;
+    this.autoRefreshDisposables.forEach((disposable) => disposable.dispose());
+    this.autoRefreshDisposables = [];
+  }
+
+  private clearRepositoryState(): void {
+    this._branches = [];
+    this._tags = [];
+    this._stashes = [];
+    this._changes = [];
+    this._graph = [];
+    this._graphHasMore = false;
+    this._loadingMoreGraph = false;
+    this._compareResult = undefined;
+    this._operationState = { kind: 'none' };
+    this._conflicts = [];
+    this._recentComparePairs = [];
+    this._worktrees = [];
+    this._submodules = [];
+    this._worktreesLoaded = false;
+    this._submodulesLoaded = false;
+    this._graphFilters = {};
+    void vscode.commands.executeCommand('setContext', GitCommand.HasSubmodules, false);
+    void vscode.commands.executeCommand('setContext', GitCommand.OperationState, 'none');
+    void vscode.commands.executeCommand('setContext', GitCommand.HasConflicts, false);
   }
 
   private _scheduleRefreshChanges(): void {
@@ -628,7 +682,8 @@ export class StateStore {
 
   getCompareLayoutOrientation(): CompareLayoutOrientation {
     const defaultOrientation = getConfigValue<string>('compare.listLayout', 'vertical');
-    const fallback: CompareLayoutOrientation = defaultOrientation === 'horizontal' ? 'horizontal' : 'vertical';
+    const fallback: CompareLayoutOrientation =
+      defaultOrientation === 'horizontal' ? 'horizontal' : 'vertical';
     const raw = this.workspaceState.get<string>(COMPARE_LAYOUT_ORIENTATION_KEY, fallback);
     return raw === 'horizontal' ? 'horizontal' : 'vertical';
   }

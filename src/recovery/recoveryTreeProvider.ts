@@ -25,10 +25,7 @@ export class RecoveryTreeProvider implements vscode.TreeDataProvider<RecoveryTre
   private readonly reflogFilesCache = new Map<string, CommitFileChange[]>();
   private cachedHeadSha: string | undefined;
 
-  constructor(
-    private readonly git: GitService,
-    private readonly workspaceRoot: string
-  ) {}
+  constructor(private readonly git: GitService) {}
 
   refresh(): void {
     this.emitter.fire();
@@ -57,7 +54,7 @@ export class RecoveryTreeProvider implements vscode.TreeDataProvider<RecoveryTre
     if (element instanceof RecoveryReflogEntryTreeItem) {
       const files = await this.getEntryFiles(element.entry);
       return files.map(
-        (file) => new RecoveryReflogFileTreeItem(element.entry, file, this.workspaceRoot)
+        (file) => new RecoveryReflogFileTreeItem(element.entry, file, this.git.rootPath)
       );
     }
 
@@ -72,6 +69,17 @@ export class RecoveryTreeProvider implements vscode.TreeDataProvider<RecoveryTre
     this.cachedHeadSha = undefined;
     this.hasLoadedReflog = true;
     await this.loadMoreReflog();
+  }
+
+  /** Clear reflog data that belongs to the previously selected repository. */
+  reset(): void {
+    this.reflogEntries = [];
+    this.hasLoadedReflog = false;
+    this.reflogHasMore = false;
+    this.visibleReflogLimit = 0;
+    this.reflogFilesCache.clear();
+    this.cachedHeadSha = undefined;
+    this.emitter.fire();
   }
 
   async loadMoreReflog(): Promise<void> {
