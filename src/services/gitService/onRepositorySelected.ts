@@ -15,8 +15,9 @@ interface SelectableVsCodeGitApi {
 }
 
 /**
- * Observes VS Code's Git SCM picker. The current selection is intentionally
- * not emitted: activation begins at the workspace-root repository.
+ * Observes VS Code's Git SCM picker. If the extension activates after the
+ * user selected a submodule, immediately report that existing selection; the
+ * workspace-root repository remains the fallback when nothing is selected.
  */
 export async function onRepositorySelected(
   this: GitService,
@@ -42,7 +43,12 @@ export async function onRepositorySelected(
     );
   };
 
-  api.repositories.forEach(watch);
+  api.repositories.forEach((repository) => {
+    watch(repository);
+    if (repository.ui?.selected) {
+      listener(repository.rootUri);
+    }
+  });
   if (api.onDidOpenRepository) {
     disposables.push(
       api.onDidOpenRepository((repository) => {

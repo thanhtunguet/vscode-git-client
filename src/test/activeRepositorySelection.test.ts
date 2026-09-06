@@ -4,13 +4,13 @@ import * as vscode from 'vscode';
 import { onRepositorySelected } from '../services/gitService/onRepositorySelected';
 
 describe('active repository selection', () => {
-  it('follows only subsequent selections from VS Code Git SCM', async () => {
+  it('uses the currently selected VS Code Git SCM repository, then follows changes', async () => {
     const rootRepository = vscode.Uri.file('/workspace');
     const submoduleRepository = vscode.Uri.file('/workspace/submodule');
     const rootSelection = new vscode.EventEmitter<void>();
     const submoduleSelection = new vscode.EventEmitter<void>();
-    let rootSelected = true;
-    let submoduleSelected = false;
+    let rootSelected = false;
+    let submoduleSelected = true;
     const selected: string[] = [];
 
     const disposable = await onRepositorySelected.call(
@@ -41,14 +41,14 @@ describe('active repository selection', () => {
       (rootUri) => selected.push(rootUri.fsPath)
     );
 
-    assert.deepStrictEqual(selected, [], 'activation retains the workspace-root repository');
+    assert.deepStrictEqual(selected, ['/workspace/submodule']);
 
-    rootSelected = false;
-    submoduleSelected = true;
+    rootSelected = true;
+    submoduleSelected = false;
     rootSelection.fire();
     submoduleSelection.fire();
 
-    assert.deepStrictEqual(selected, ['/workspace/submodule']);
+    assert.deepStrictEqual(selected, ['/workspace/submodule', '/workspace']);
     disposable?.dispose();
   });
 });
