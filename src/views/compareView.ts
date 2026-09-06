@@ -99,7 +99,8 @@ export class CompareView {
     private readonly onCommitRangeClick: (selection: CompareCommitRangeSelection) => Promise<void>,
     private readonly modeStore: CompareViewModeStore,
     private readonly layoutStore: CompareLayoutOrientationStore,
-    private readonly onRefresh: (leftRef: string, rightRef: string) => Promise<void>
+    private readonly onRefresh: (leftRef: string, rightRef: string) => Promise<void>,
+    private readonly getDefaultSaveUri: () => vscode.Uri | undefined
   ) {
     this.panel = vscode.window.createWebviewPanel(
       GitCommand.BranchCompare,
@@ -303,9 +304,9 @@ export class CompareView {
     const leftRef = message.leftRef || this.currentResult?.leftRef || 'left';
     const rightRef = message.rightRef || this.currentResult?.rightRef || 'right';
     const defaultFileName = `${sanitizeFileNameSegment(leftRef)}-vs-${sanitizeFileNameSegment(rightRef)}.xlsx`;
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
-    const defaultUri = workspaceRoot
-      ? vscode.Uri.joinPath(workspaceRoot, defaultFileName)
+    const repositoryRoot = this.getDefaultSaveUri();
+    const defaultUri = repositoryRoot
+      ? vscode.Uri.joinPath(repositoryRoot, defaultFileName)
       : undefined;
     const targetUri = await vscode.window.showSaveDialog({
       title: 'Export Compare Branches As Excel',
@@ -354,9 +355,9 @@ export class CompareView {
     const leftRef = message.leftRef || this.currentResult?.leftRef || 'left';
     const rightRef = message.rightRef || this.currentResult?.rightRef || 'right';
     const defaultFileName = `${sanitizeFileNameSegment(leftRef)}-vs-${sanitizeFileNameSegment(rightRef)}.csv`;
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
-    const defaultUri = workspaceRoot
-      ? vscode.Uri.joinPath(workspaceRoot, defaultFileName)
+    const repositoryRoot = this.getDefaultSaveUri();
+    const defaultUri = repositoryRoot
+      ? vscode.Uri.joinPath(repositoryRoot, defaultFileName)
       : undefined;
     const targetUri = await vscode.window.showSaveDialog({
       title: 'Export Compare Branches As CSV',

@@ -114,6 +114,7 @@ import { handleRecoveryRefreshReflog } from './handleRecoveryRefreshReflog';
 import { handleRecoveryScan } from './handleRecoveryScan';
 import { handleRecoveryToggleAllRefs } from './handleRecoveryToggleAllRefs';
 import { handleRefresh } from './handleRefresh';
+import { handleRepositorySelect } from './handleRepositorySelect';
 import { handleRemoteAdd } from './handleRemoteAdd';
 import { handleRemoteDelete } from './handleRemoteDelete';
 import { handleRemoteFetch } from './handleRemoteFetch';
@@ -229,7 +230,8 @@ export class CommandController {
       isShowingCommit(sha: string): boolean;
     },
     public readonly extensionUri: vscode.Uri,
-    public readonly recovery?: RecoveryController
+    public readonly recovery?: RecoveryController,
+    public readonly selectRepository?: (rootUri: vscode.Uri) => Promise<void>
   ) {}
 
   public readonly register = register;
@@ -249,6 +251,8 @@ export class CommandController {
   public readonly openDiffWorkflow = openDiffWorkflow;
 
   public readonly openCompareWorkflow = openCompareWorkflow;
+
+  public readonly handleRepositorySelect = handleRepositorySelect;
 
   public readonly pickConflictPathArg = pickConflictPathArg;
 

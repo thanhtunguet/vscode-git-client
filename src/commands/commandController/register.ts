@@ -21,6 +21,7 @@ export function register(this: CommandController, context: vscode.ExtensionConte
   };
 
   register(GitCommand.Refresh, this.handleRefresh.bind(this));
+  register(GitCommand.RepositorySelect, this.handleRepositorySelect.bind(this));
 
   register(GitCommand.RecoveryOpen, this.handleRecoveryOpen.bind(this));
 

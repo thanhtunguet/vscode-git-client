@@ -42,10 +42,8 @@ export async function handleCreatePatchSelectedChanges(this: CommandController, 
       if (output === 'clipboard') {
         await vscode.env.clipboard.writeText(patch);
       } else {
-        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
-        const defaultUri = workspaceRoot
-          ? vscode.Uri.joinPath(workspaceRoot, patchFileName)
-          : undefined;
+        const repositoryRoot = vscode.Uri.file(this.git.rootPath);
+        const defaultUri = vscode.Uri.joinPath(repositoryRoot, patchFileName);
         const targetUri = await vscode.window.showSaveDialog({
           title: 'Save Patch File',
           saveLabel: 'Save',

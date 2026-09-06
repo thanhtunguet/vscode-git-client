@@ -1,5 +1,6 @@
 export enum GitCommand {
   Refresh = 'vscodeGitClient.refresh',
+  RepositorySelect = 'vscodeGitClient.repository.select',
   CommitViewClose = 'vscodeGitClient.commitView.close',
   QuickActions = 'vscodeGitClient.quickActions',
   BranchActionHub = 'vscodeGitClient.branch.actionHub',

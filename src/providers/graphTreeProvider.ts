@@ -128,12 +128,18 @@ export class GraphTreeProvider implements vscode.TreeDataProvider<GraphNode> {
   readonly onDidChangeTreeData = this.emitter.event;
   private readonly commitFilesCache = new Map<string, CommitFileChange[]>();
   private readonly commitAncestryCache = new Map<string, boolean>();
+  private repositoryRoot: string;
 
   constructor(
     private readonly state: StateStore,
     private readonly git: GitService
   ) {
+    this.repositoryRoot = this.git.rootPath;
     this.state.onDidChange(() => {
+      if (!this.git.samePath(this.repositoryRoot, this.git.rootPath)) {
+        this.repositoryRoot = this.git.rootPath;
+        this.commitFilesCache.clear();
+      }
       this.commitAncestryCache.clear();
       this.emitter.fire();
     });

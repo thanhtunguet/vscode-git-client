@@ -73,18 +73,8 @@ export class EditorOrchestrator {
 
     const leftNormalized = leftPath.replaceAll(path.sep, '/');
     const rightNormalized = rightPath.replaceAll(path.sep, '/');
-    const leftUri = withVirtualGitMetadata(
-      vscode.Uri.parse(
-        `${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(options.fromRef)}/${leftNormalized}`
-      ),
-      { kind: 'ref', ref: options.fromRef, relativePath: leftNormalized }
-    );
-    const rightUri = withVirtualGitMetadata(
-      vscode.Uri.parse(
-        `${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(options.toRef)}/${rightNormalized}`
-      ),
-      { kind: 'ref', ref: options.toRef, relativePath: rightNormalized }
-    );
+    const leftUri = this.createVirtualGitUri(options.fromRef, leftNormalized);
+    const rightUri = this.createVirtualGitUri(options.toRef, rightNormalized);
     this.contentProvider.setContent(leftUri, leftContent);
     this.contentProvider.setContent(rightUri, rightContent);
 
@@ -196,10 +186,8 @@ export class EditorOrchestrator {
     }
 
     const normalized = filePath.replaceAll(path.sep, '/');
-    const leftUri = vscode.Uri.parse(
-      `vscodegitclient:${encodeURIComponent(`${sha}^`)}/${normalized}`
-    );
-    const rightUri = vscode.Uri.parse(`vscodegitclient:${encodeURIComponent(sha)}/${normalized}`);
+    const leftUri = this.createVirtualGitUri(`${sha}^`, normalized);
+    const rightUri = this.createVirtualGitUri(sha, normalized);
     this.contentProvider.setContent(leftUri, leftContent);
     this.contentProvider.setContent(rightUri, rightContent);
 
@@ -409,7 +397,8 @@ export class EditorOrchestrator {
         async (leftRef, rightRef) => {
           const result = await this.state.compareBranches(leftRef, rightRef);
           this.compareView?.render(result);
-        }
+        },
+        () => vscode.Uri.file(this.git.rootPath)
       );
       this.compareView.onDispose(() => {
         void this.commitFilesView.clear();
@@ -420,14 +409,22 @@ export class EditorOrchestrator {
   }
 
   private async createVirtualUri(ref: string, relativePath: string): Promise<vscode.Uri> {
-    const normalized = relativePath.replaceAll(path.sep, '/');
-    const uri = withVirtualGitMetadata(
-      vscode.Uri.parse(`${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(ref)}/${normalized}`),
-      { kind: 'ref', ref, relativePath: normalized }
-    );
+    const uri = this.createVirtualGitUri(ref, relativePath);
     const content = await this.git.getFileContentFromRef(ref, relativePath);
     this.contentProvider.setContent(uri, content);
     return uri;
+  }
+
+  private createVirtualGitUri(
+    ref: string,
+    relativePath: string,
+    kind: 'ref' | 'worktree' = 'ref'
+  ): vscode.Uri {
+    const normalized = relativePath.replaceAll(path.sep, '/');
+    return withVirtualGitMetadata(
+      vscode.Uri.parse(`${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(ref)}/${normalized}`),
+      { kind, ref, relativePath: normalized, repository: this.git.rootPath }
+    );
   }
 
   private async createWorkingTreeUri(relativePath: string, status?: string): Promise<vscode.Uri> {
@@ -439,10 +436,7 @@ export class EditorOrchestrator {
     }
 
     const normalized = relativePath.replaceAll(path.sep, '/');
-    const uri = withVirtualGitMetadata(
-      vscode.Uri.parse(`${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(WORKTREE_REF)}/${normalized}`),
-      { kind: 'worktree', ref: WORKTREE_REF, relativePath: normalized }
-    );
+    const uri = this.createVirtualGitUri(WORKTREE_REF, normalized, 'worktree');
     this.contentProvider.setContent(uri, '');
     return uri;
   }
@@ -456,10 +450,7 @@ export class EditorOrchestrator {
     }
     if ((status ?? '').trim().toUpperCase().startsWith('A')) {
       const normalized = side.relativePath.replaceAll(path.sep, '/');
-      const uri = withVirtualGitMetadata(
-        vscode.Uri.parse(`${VIRTUAL_GIT_SCHEME}:${encodeURIComponent(side.ref)}/${normalized}`),
-        { kind: 'ref', ref: side.ref, relativePath: normalized }
-      );
+      const uri = this.createVirtualGitUri(side.ref, normalized);
       this.contentProvider.setContent(uri, '');
       return uri;
     }
@@ -576,12 +567,18 @@ function parseVirtualGitUri(
 
 function withVirtualGitMetadata(
   uri: vscode.Uri,
-  metadata: { kind: 'ref' | 'worktree'; ref: string; relativePath: string }
+  metadata: {
+    kind: 'ref' | 'worktree';
+    ref: string;
+    relativePath: string;
+    repository?: string;
+  }
 ): vscode.Uri {
   const query = new URLSearchParams({
     kind: metadata.kind,
     ref: metadata.ref,
-    path: metadata.relativePath
+    path: metadata.relativePath,
+    repository: metadata.repository ?? ''
   });
   return uri.with({ query: query.toString() });
 }

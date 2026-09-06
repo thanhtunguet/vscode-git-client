@@ -25,6 +25,6 @@ export async function getBuiltInGitRepository(this: CommandController): Promise<
       return (
         gitApi.repositories.find(
           (repo) => repo.rootUri.fsPath.replace(/\\/g, '/') === normalizedRoot
-        ) ?? gitApi.repositories[0]
+        )
       );
 }

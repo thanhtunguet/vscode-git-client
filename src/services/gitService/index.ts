@@ -54,6 +54,7 @@ import { getFilesInCommitWithStatus } from './getFilesInCommitWithStatus';
 import { getFileStageContent } from './getFileStageContent';
 import { getGitDir } from './getGitDir';
 import { getGitRoot } from './getGitRoot';
+import { getRepositorySelectionRoots } from './getRepositorySelectionRoots';
 import { getGraph } from './getGraph';
 import { getVisualGraphData } from './getVisualGraphData';
 import { getHeadCommitMessage } from './getHeadCommitMessage';
@@ -285,6 +286,8 @@ export class GitService {
   }
 
   public readonly getGitRoot = getGitRoot;
+
+  public readonly getRepositorySelectionRoots = getRepositorySelectionRoots;
 
   /**
    * Converts an absolute fsPath to a git-root-relative path with forward slashes,

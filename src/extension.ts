@@ -264,7 +264,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     logger,
     commitFilesProvider,
     context.extensionUri,
-    recoveryController
+    recoveryController,
+    selectRepository
   );
   commandController.register(context);
   await registerBranchActionHubInGitCheckout(context, logger);
@@ -278,25 +279,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   stateStore.attachAutoRefresh(context);
   let repositorySelection = Promise.resolve();
+
+  async function selectRepository(rootUri: vscode.Uri): Promise<void> {
+    repositorySelection = repositorySelection
+      .then(async () => {
+        if (gitService.samePath(gitService.rootPath, rootUri.fsPath)) {
+          return;
+        }
+        editor.resetRepositoryState();
+        await commitFilesProvider.clear();
+        recoveryProvider.reset();
+        if (!(await stateStore.switchRepository(rootUri))) {
+          return;
+        }
+        if (recoveryView) {
+          recoveryView.description = gitService.rootPath;
+        }
+        logger.info(`Switched active repository to ${gitService.rootPath}.`);
+      })
+      .catch((error) => logger.warn(`Failed to switch active repository: ${String(error)}`));
+    await repositorySelection;
+  }
+
   void gitService
     .onRepositorySelected((rootUri) => {
-      repositorySelection = repositorySelection
-        .then(async () => {
-          if (gitService.samePath(gitService.rootPath, rootUri.fsPath)) {
-            return;
-          }
-          editor.resetRepositoryState();
-          await commitFilesProvider.clear();
-          recoveryProvider.reset();
-          if (!(await stateStore.switchRepository(rootUri))) {
-            return;
-          }
-          if (recoveryView) {
-            recoveryView.description = gitService.rootPath;
-          }
-          logger.info(`Switched active repository to ${gitService.rootPath}.`);
-        })
-        .catch((error) => logger.warn(`Failed to switch active repository: ${String(error)}`));
+      void selectRepository(rootUri);
     })
     .then((disposable) => {
       if (disposable) {
