@@ -29,6 +29,30 @@ export async function onRepositorySelected(
   }
 
   const disposables: vscode.Disposable[] = [];
+  let selectionCheckScheduled = false;
+  let disposed = false;
+
+  // A native SCM selection change can notify the repository that was just
+  // deselected. Resolve the selected repository from the API only after that
+  // change has settled, instead of assuming the event belongs to the newly
+  // selected repository.
+  const reportSelectedRepository = (): void => {
+    if (selectionCheckScheduled) {
+      return;
+    }
+    selectionCheckScheduled = true;
+    queueMicrotask(() => {
+      selectionCheckScheduled = false;
+      if (disposed) {
+        return;
+      }
+      const selectedRepository = api.repositories.find((repository) => repository.ui?.selected);
+      if (selectedRepository) {
+        listener(selectedRepository.rootUri);
+      }
+    });
+  };
+
   const watch = (repository: SelectableVsCodeGitRepository): void => {
     const onDidChange = repository.ui?.onDidChange;
     if (!onDidChange) {
@@ -36,30 +60,25 @@ export async function onRepositorySelected(
     }
     disposables.push(
       onDidChange(() => {
-        if (repository.ui?.selected) {
-          listener(repository.rootUri);
-        }
+        reportSelectedRepository();
       })
     );
   };
 
-  api.repositories.forEach((repository) => {
-    watch(repository);
-    if (repository.ui?.selected) {
-      listener(repository.rootUri);
-    }
-  });
+  api.repositories.forEach(watch);
+  reportSelectedRepository();
   if (api.onDidOpenRepository) {
     disposables.push(
       api.onDidOpenRepository((repository) => {
         watch(repository);
-        if (repository.ui?.selected) {
-          listener(repository.rootUri);
-        }
+        reportSelectedRepository();
       })
     );
   }
   return {
-    dispose: () => disposables.forEach((disposable) => disposable.dispose())
+    dispose: () => {
+      disposed = true;
+      disposables.forEach((disposable) => disposable.dispose());
+    }
   };
 }

@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { onRepositorySelected } from '../services/gitService/onRepositorySelected';
 
 describe('active repository selection', () => {
-  it('uses the currently selected VS Code Git SCM repository, then follows changes', async () => {
+  it('uses the currently selected VS Code Git SCM repository, then follows native selection changes', async () => {
     const rootRepository = vscode.Uri.file('/workspace');
     const submoduleRepository = vscode.Uri.file('/workspace/submodule');
     const rootSelection = new vscode.EventEmitter<void>();
@@ -41,12 +41,17 @@ describe('active repository selection', () => {
       (rootUri) => selected.push(rootUri.fsPath)
     );
 
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+
     assert.deepStrictEqual(selected, ['/workspace/submodule']);
 
     rootSelected = true;
     submoduleSelected = false;
-    rootSelection.fire();
+    // VS Code can report the repository that was deselected, so the listener
+    // must resolve the new selection from the full Git API snapshot.
     submoduleSelection.fire();
+
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
 
     assert.deepStrictEqual(selected, ['/workspace/submodule', '/workspace']);
     disposable?.dispose();
